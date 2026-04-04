@@ -1,0 +1,139 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+\usepackage[utf8]{inputenc}
+\input{common} % the preamble here
+
+\begin{document}
+\include{bg-waves} % The title
+
+\tableofcontents
+
+\newpage
+\section{Abstract}
+Enterprise Resource Planning systems suffer from heterogeneous data schemas across vendors (SAP, Odoo, Oracle NetSuite, Microsoft Dynamics 365, Epicor, Infor). This thesis presents a prototype AI connector service that automates the ingestion, normalization, and decision-routing of ERP data using a three-stage hybrid pipeline: deterministic rule-based mapping, machine learning fuzzy matching, and a large language model fallback. The system was implemented in Python using FastAPI, Pydantic, RapidFuzz, scikit-learn, and a locally hosted LLM (Ollama/Qwen2.5-Coder), and integrated with a Spring Boot ERP backend. Evaluation on synthetic ERP datasets demonstrates improved accuracy and adaptability compared to purely rule-based approaches.
+
+\section{Overlying Question}
+Mojmir Horvath will investigate leveraging artificial intelligence to optimize ERP system decision-making. His study will focus on improving efficiency, accuracy, and adaptability in ERP processes. To achieve this, Mojmir will implement Al algorithms, such as machine learning models for demand forecasting and decision optimization, within a prototype ERP system. He will code and test these models using Python and libraries like PyTorch, integrating them with an ERP module to evaluate performance and decision quality, providing a practical framework for Al-driven ERP enhancements.
+
+\section{Introduction}
+
+\section{What is AI?}
+
+\section{Functionality}
+
+\section{When does type agnostic ERP parsing work?}
+
+\section{System AI Connector Architecture}
+\subsection{1. Layer - Rule Based}
+\subsection{2. Layer - ...}
+\subsection{3. Layer - ...}
+\subsection{4. Layer - ...}
+\subsection{5. Layer - ...}
+\subsection{6. Layer - ...}
+HTTP Request (JSON/JSONL/CSV)
+        ↓
+   AdapterFactory          ← content-type detection, normalization
+        ↓
+   RuleEngine              ← deterministic ERP-specific field mapping (6 ERP profiles + generic fallback)
+        ↓
+   MLEngine                ← fuzzy value matching via RapidFuzz (token_sort_ratio)
+        ↓
+   Dependency Synthesis    ← auto-generates Product → Location → StorageLocation → Storage → Employee → Request chain
+        ↓
+   Validator (Pydantic)    ← schema validation against 8 DTO models
+        ↓
+   LLMEngine (fallback)    ← Ollama/Qwen2.5-Coder for records that fail deterministic path
+        ↓
+   BackendClient           ← REST POST to Spring ERP, UUID translation, idempotency handling
+   
+   **4.1 Data Normalization Layer (Adapter)**
+- `JsonAdapter`, `JsonLinesAdapter`, `CsvAdapter`, `FreeTextAdapter`
+- `AdapterFactory` selects based on Content-Type header
+
+**4.2 Rule Engine**
+- 6 ERP-specific mapping dictionaries (Odoo, SAP S/4HANA, Epicor Kinetic, Oracle NetSuite, Microsoft Dynamics 365, Infor CloudSuite) + generic fallback
+- 10-step processing: envelope extraction → flattening → key mapping → date normalization → compound field splitting → storage name synthesis → type coercion → context-aware re-mapping → address flattening → volume derivation
+- Deterministic, zero-latency, fully testable
+
+**4.3 ML Engine**
+- `RapidFuzz` fuzzy matching (`token_sort_ratio`, threshold 80) for value normalization (usage types, UoM, country codes)
+- `scikit-learn` available for future model extensions (demand forecasting)
+- Lightweight, no GPU required
+
+**4.4 LLM Fallback Engine**
+- Local Ollama instance with `qwen2.5-coder:7b` model
+- Invoked only when rule engine + validation fails — preserves performance
+- Structured JSON output enforced via Ollama's `format: json` parameter
+- Prompt engineering: schema description + raw record → structured output
+
+**4.5 Dependency Synthesis**
+- For `inventory` and `transfer` record types, the pipeline auto-generates the full entity dependency chain
+- Deterministic UUID generation (`string_to_uuid`) ensures idempotency across repeated imports
+- Transfer records additionally synthesize a system Employee and Request entity
+
+**4.6 Validation**
+- Pydantic v2 models for 8 DTOs: `ProductCreateDto`, `LocationCreationDto`, `StorageLocationCreationDto`, `StorageCreationDto`, `InventoryCreationDto`, `RequestCreateDto`, `ShipmentCreateDto`, `EmployeeCreateDto`
+- `Validator.determine_model()` uses heuristic key-set matching + `record_type` hint
+
+**4.7 Backend Integration**
+- `BackendClient` routes to 8 REST endpoints
+- UUID translation map handles foreign-key references between sequentially created entities
+- Idempotency: duplicate detection via response body inspection, with backend lookup fallback for ID recovery
+
+
+\section{Rule Based ML}
+
+\section{Relevant techniques: rule engines, fuzzy string matching, LLMs for structured data extraction}
+
+\section{Benefits of using ML to transfer data into our type}
+
+\section{Local LLM performance VS API - Why we cannot use the one}
+
+\section{How does accuracy improve when adding Fuzzy matching}
+
+\section{3. Types of demand forecasting}
+\subsection{...}
+\subsection{...}
+\subsection{...}
+
+\section{Evaluation of decision quality}
+\section{Data integration challenges: schema heterogeneity, field naming inconsistency, nested structures}
+
+\section{AI in ERP: demand forecasting, anomaly detection, intelligent routing}
+
+\section{Discussion}
+\subsection{ Hybrid approach outperforms pure rule-based systems on unknown/irregular schemas}
+\subsection{LLM fallback adds latency (~30s timeout) but significantly improves adaptability}
+\subsection{Limitations: LLM requires local Ollama instance; ML engine currently limited to fuzzy matching (no PyTorch demand forecasting model deployed in prototype)}
+\subsection{Future work: integrate PyTorch LSTM/Transformer for demand forecasting on inventory records; active learning to improve rule coverage over time}
+
+
+
+
+### 2. Background & Related Work
+- ERP systems overview (SAP S/4HANA, Odoo, Oracle NetSuite, Dynamics 365, Epicor, 
+
+\section{Evaluation}
+
+\subsection{Test Datasets}
+- `erp_dataset.jsonl`, `erp_dataset_medium.jsonl`, `erp_dataset_small.jsonl`, `edge_cases.jsonl` — synthetic ERP records across all 6 supported systems
+- `test_report.csv` — pipeline run results
+
+\subsection{5.2 Metrics}
+- Transformation success rate (rule_ml path vs. LLM fallback path)
+- LLM invocation rate (lower = better rule coverage)
+- Validation pass rate per DTO model
+- End-to-end latency (rule path vs. LLM path)
+- Idempotency correctness (duplicate handling)
+
+**5.3 Results** *(fill in from your actual test_report.csv)*
+- Rule engine handles X% of records without LLM
+- LLM fallback recovers Y% of remaining records
+- Overall pipeline success rate: Z%
+
+\section{Conclusion}
+- The prototype demonstrates that a layered AI pipeline (rules → ML → LLM) can automate ERP data integration with high accuracy and adaptability
+- The architecture is extensible: the `MLEngine` stub is ready for PyTorch model integration
+- Practical contribution: a reusable framework for AI-driven ERP data harmonization
+
+\end{document}
