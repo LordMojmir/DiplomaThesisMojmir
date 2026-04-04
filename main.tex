@@ -2,10 +2,14 @@
 \usepackage{graphicx} % Required for inserting images
 \usepackage[utf8]{inputenc}
 \usepackage{hyperref} % Useful for internal linking
+\usepackage[notes,backend=biber]{biblatex-chicago}
+\addbibresource{references.bib}
 \input{common} % the preamble here
 
 \begin{document}
 \include{bg-waves} % The title
+\newpage
+\pagenumbering{arabic}
 
 \tableofcontents
 \newpage
@@ -35,29 +39,40 @@ Mojmir Horvath will investigate leveraging artificial intelligence to optimize E
     \item Current trends: demand forecasting, anomaly detection, and intelligent routing.
 \end{itemize}
 
+
 \section{Theoretical Foundations}
+
 \subsection{What is AI?}
-% Add definition and scope of Artificial Intelligence within the context of enterprise software.
+Artificial Intelligence (AI) refers to computational systems capable of performing tasks that require human-like cognitive functions, such as learning, reasoning, and adaptation \autocite{russell2010artificial}. Within enterprise software, AI encompasses the ability to extract meaning from business data, infer relationships between heterogeneous schemas, and support decision-making through predictive or generative methods. 
+In modern ERP systems, AI serves as a layer of abstraction that can reconcile structured and semi-structured data, automate repetitive transformations, and enhance adaptability in dynamic enterprise environments \autocite{zhang2021aienterprise}. 
+This research applies AI as an integrative mechanism to align inconsistent data structures between ERP systems, enabling rule-to-learning transitions when deterministic approaches fail.
 
 \subsection{Relevant Techniques for Data Harmonization}
+Enterprise data harmonization involves merging data with diverse formats, semantics, and schemas into a unified model \autocite{doan2012principles}. Multiple paradigms underpin this process:
 \begin{itemize}
-    \item Rule engines for deterministic logic.
-    \item Fuzzy string matching for probabilistic alignment.
-    \item Large Language Models (LLMs) for structured data extraction from unstructured or semi-structured data.
+    \item \textbf{Rule engines}: Deterministic mapping systems encode transformation knowledge as static rules. They provide full interpretability but low adaptability to unseen input \autocite{forgy1982rete}.
+    \item \textbf{Fuzzy string matching}: Probabilistic matching algorithms, such as token-based similarity measures, handle near-duplicates, misspellings, and noisy input using distance metrics \autocite{cohen2003comparison}. These are lightweight yet effective for aligning ERP field labels and categorical values.
+    \item \textbf{Large Language Models (LLMs)}: Recently, transformer-based LLMs have been shown to perform flexible data extraction, normalization, and labeling from semi-structured or even free-text input \autocite{brown2020language, zhao2023survey}. Within ERP data pipelines, LLMs offer redundancy for failed deterministic or statistical mappings by leveraging contextual understanding.
 \end{itemize}
+The hybrid pipeline implemented in this prototype therefore mirrors an evolution from symbolic AI (deterministic rules) toward connectionist systems (ML and neural models), bridging interpretability and robustness.
 
 \subsection{Rule-Based Systems vs. Machine Learning}
-% Expanded from "Rule Based ML" and "Benefits of using ML to transfer data into our type"
-\begin{itemize}
-    \item Limitations of purely rule-based systems.
-    \item Benefits of using ML to transfer data into standardized internal types.
-\end{itemize}
+Rule-based systems operate through explicitly codified logic, ensuring reproducibility and interpretability \autocite{giarratano2005expert}. However, as the diversity of data sources grows, purely rule-based architectures exhibit exponential growth in maintenance overhead. They fail to generalize to unseen schemas or contextual variations.
+Machine learning (ML), by contrast, infers transformation patterns from examples rather than from hand-written logic \autocite{goodfellow2016deep}. In ERP data integration, ML enables schema alignment and entity-linking even when semantic or lexical mismatches occur. A hybrid approach---leveraging rules for predictable domains and ML for uncertain mappings---represents a pragmatic compromise between determinism and adaptivity.
+This mixed architecture is consistent with current AI trends in enterprise systems that emphasize interpretable automation, model transparency, and feedback-driven learning loops \autocite{gunning2017explainable}.
 
 \subsection{Types of Demand Forecasting}
-% Fill in the specific types below
-\subsubsection{Time Series Analysis} % Example placeholder for ...
-\subsubsection{Causal Models} % Example placeholder for ...
-\subsubsection{Machine Learning Approaches} % Example placeholder for ...
+Demand forecasting is a critical element in ERP-driven decision optimization. It aims to predict future product demand based on historical and contextual factors.
+
+\subsubsection{Time Series Analysis}
+Classical time series modeling techniques, such as ARIMA and exponential smoothing, model temporal dependencies and seasonality \autocite{hyndman2018forecasting}. These methods are statistically efficient and well-suited for stationary patterns in inventory and sales data.
+
+\subsubsection{Causal Models}
+Causal or econometric models incorporate exogenous predictors (e.g., marketing activity, macroeconomic factors) to estimate how external conditions affect demand \autocite{stock2001vector}. Such models suit enterprise planning tasks requiring interpretability and policy sensitivity.
+
+\subsubsection{Machine Learning Approaches}
+Recent advances integrate ML and deep learning architectures into demand forecasting, improving nonlinear pattern recognition and feature interactions \autocite{bandara2020lstm}. Recurrent (LSTM/GRU) or transformer-based models capture long-term dependencies, outperforming traditional methods on complex datasets. 
+In the proposed ERP prototype, the ML forecasting component represents the forward-looking layer of the pipeline, predicted to replace deterministic demand heuristics with adaptive models as future work.
 
 \section{System AI Connector Architecture}
 
@@ -69,22 +84,29 @@ The architecture is structured as a multi-layered hybrid pipeline. The execution
 
 \begin{verbatim}
 HTTP Request (JSON/JSONL/CSV)
-        ↓
-   AdapterFactory          ← content-type detection, normalization
-        ↓
-   RuleEngine              ← deterministic ERP-specific field mapping 
+        |
+        v
+   AdapterFactory          <- content-type detection, normalization
+        |
+        v
+   RuleEngine              <- deterministic ERP-specific field mapping
                              (6 ERP profiles + generic fallback)
-        ↓
-   MLEngine                ← fuzzy value matching via RapidFuzz
-        ↓
-   Dependency Synthesis    ← auto-generates Product → Location → 
-                             StorageLocation → Storage → Employee → Request
-        ↓
-   Validator (Pydantic)    ← schema validation against 8 DTO models
-        ↓
-   LLMEngine (fallback)    ← Ollama/Qwen2.5-Coder for failed deterministic paths
-        ↓
-   BackendClient           ← REST POST to Spring ERP, UUID translation, 
+        |
+        v
+   MLEngine                <- fuzzy value matching via RapidFuzz
+        |
+        v
+   Dependency Synthesis    <- auto-generates Product -> Location ->
+                             StorageLocation -> Storage -> Employee -> Request
+        |
+        v
+   Validator (Pydantic)    <- schema validation against 8 DTO models
+        |
+        v
+   LLMEngine (fallback)    <- Ollama/Qwen2.5-Coder for failed deterministic paths
+        |
+        v
+   BackendClient           <- REST POST to Spring ERP, UUID translation,
                              idempotency handling
 \end{verbatim}
 
@@ -204,4 +226,5 @@ While the LLM fallback introduces notable latency (approximately 30-second timeo
     \item This research provides a practical, reusable framework for AI-driven ERP data harmonization.
 \end{itemize}
 
+\printbibliography
 \end{document}
