@@ -2,7 +2,7 @@
 \usepackage{graphicx} % Required for inserting images
 \usepackage[utf8]{inputenc}
 \usepackage{hyperref} % Useful for internal linking
-\usepackage[notes,backend=biber]{biblatex-chicago}
+\usepackage[style=numeric,backend=biber]{biblatex}
 \addbibresource{references.bib}
 \input{common} % the preamble here
 
@@ -17,9 +17,9 @@
 \section{Abstract}
 Enterprise Resource Planning systems suffer from heterogeneous data schemas across vendors (SAP, Odoo, Oracle NetSuite, Microsoft Dynamics 365, Epicor, Infor). This thesis presents a prototype AI connector service that automates the ingestion, normalization, and decision-routing of ERP data using a three-stage hybrid pipeline: deterministic rule-based mapping, machine learning fuzzy matching, and a large language model fallback. The system was implemented in Python using FastAPI, Pydantic, RapidFuzz, scikit-learn, and a locally hosted LLM (Ollama/Qwen2.5-Coder), and integrated with a Spring Boot ERP backend. Evaluation on synthetic ERP datasets demonstrates improved accuracy and adaptability compared to purely rule-based approaches.
 
-\section{Introduction}
-\subsection{Overlying Question and Objectives}
-Mojmir Horvath will investigate leveraging artificial intelligence to optimize ERP system decision-making. His study will focus on improving efficiency, accuracy, and adaptability in ERP processes. To achieve this, Mojmir will implement AI algorithms, such as machine learning models for demand forecasting and decision optimization, within a prototype ERP system. He will code and test these models using Python and libraries like PyTorch, integrating them with an ERP module to evaluate performance and decision quality, providing a practical framework for AI-driven ERP enhancements.
+% \section{Introduction}
+% \subsection{Overlying Question and Objectives}
+% Mojmir Horvath will investigate leveraging artificial intelligence to optimize ERP system decision-making. His study will focus on improving efficiency, accuracy, and adaptability in ERP processes. To achieve this, Mojmir will implement AI algorithms, such as machine learning models for demand forecasting and decision optimization, within a prototype ERP system. He will code and test these models using Python and libraries like PyTorch, integrating them with an ERP module to evaluate performance and decision quality, providing a practical framework for AI-driven ERP enhancements.
 
 \section{Background and Related Work}
 
@@ -192,20 +192,12 @@ However, purely agnostic parsing breaks down when vendors introduce deeply neste
 In these situations, vendor-specific rule dictionaries and context-aware remapping become necessary to disambiguate meaning and route fields to the correct internal DTO attributes.
 The design therefore uses type-agnostic parsing as a “first pass” that captures low-hanging alignment opportunities, while the vendor profiles act as a targeted override layer for schemas that deviate materially from the implicit common denominator.\autocite{tacnode2026patterns}
 
-\subsubsection*{Suggested Diagram: Coverage of Type-Agnostic Parsing}
-To illustrate where agnostic parsing is sufficient, you can add a simple bar chart comparing coverage with and without vendor profiles.
-Export your chart (for example, from Python/Matplotlib) as \texttt{type-agnostic-coverage.pdf} and include it as follows:
-
-\begin{verbatim}
-\begin{figure}[h]
+\begin{figure}[H]
   \centering
-  \includegraphics[width=0.65\textwidth]{type-agnostic-coverage.pdf}
-  \caption{Illustrative comparison of successful transformations for
-           type-agnostic parsing alone vs. parsing with vendor-specific
-           rules enabled.}
+  \includegraphics[width=0.75\textwidth]{TypeAgnostisVSVendorSpecific.png}
+  \caption{Comparison of successful transformations for type-agnostic parsing alone vs. parsing with vendor-specific rules enabled.}
   \label{fig:type-agnostic-coverage}
 \end{figure}
-\end{verbatim}
 
 You would map the bars to your actual evaluation metrics, for example “records mapped correctly without vendor profile” vs. “records mapped correctly with vendor profile”.
 
@@ -222,20 +214,12 @@ At the same time, fuzzy matching introduces a trade-off between recall and preci
 To mitigate this risk, the implementation constrains fuzzy matching to well-defined fields, uses conservative thresholds (80 in the current configuration), and retains the option of escalating ambiguous cases to the LLM fallback instead of forcing a low-confidence mapping.
 This reflects best practices in enterprise data quality management, where fuzzy techniques are applied selectively and often in combination with deterministic rules and human review for high-impact attributes.\autocite{aerospike2026fuzzy}
 
-\subsubsection*{Suggested Diagram: Accuracy With and Without Fuzzy Matching}
-You can communicate the benefit of fuzzy matching using a simple before/after chart based on your \texttt{test\_report.csv}:
-
-\begin{verbatim}
-\begin{figure}[h]
+\begin{figure}[H]
   \centering
-  \includegraphics[width=0.65\textwidth]{fuzzy-matching-impact.pdf}
-  \caption{Example transformation success rate and validation pass rate
-           before and after enabling fuzzy matching in the ML engine.}
+  \includegraphics[width=0.75\textwidth]{FuzzyMatching_Image.png}
+  \caption{Transformation success rate and validation pass rate before and after enabling fuzzy matching in the ML engine.}
   \label{fig:fuzzy-impact}
 \end{figure}
-\end{verbatim}
-
-A typical plot would show metrics such as “records passing validation” and “LLM invocation rate” for two configurations: rules-only vs. rules-plus-fuzzy.
 
 \subsection{Local LLM Performance vs. Cloud API}
 The decision to run the \texttt{qwen2.5-coder:7b} model locally via Ollama rather than using a managed cloud API reflects a balance between privacy, latency predictability, and cost that is specific to ERP integration workloads.\autocite{daily2026ollama,aimultiple2026cloudllm}
@@ -255,18 +239,12 @@ Self-hosting a compact open-weight model requires upfront investment in compute 
 In this prototype, the design assumes a modest but steady stream of ERP data and a preference for maximal control, making a small local model a reasonable compromise.
 For organizations with spiky workloads or no appetite for managing AI infrastructure, the same architecture could be adapted to a cloud API simply by swapping the LLM engine implementation.
 
-\subsubsection*{Suggested Diagram: Local vs. Cloud LLM Trade-offs}
-To summarize the trade-offs, you may include a comparison figure or table generated externally and imported as an image, for example \texttt{llm-local-vs-cloud.pdf}:
-
-\begin{verbatim}
-\begin{figure}[h]
+\begin{figure}[H]
   \centering
-  \includegraphics[width=0.7\textwidth]{llm-local-vs-cloud.pdf}
-  \caption{Qualitative comparison of local LLM deployment vs. cloud LLM APIs
-           along the dimensions of privacy, latency predictability, and cost.}
+  \includegraphics[width=0.7\textwidth]{LocalVSServer.png}
+  \caption{Qualitative comparison of local LLM deployment vs. cloud LLM APIs along the dimensions of privacy, latency predictability, and cost. Source: \autocite{reddit2024localvscloud}}
   \label{fig:llm-local-vs-cloud}
 \end{figure}
-\end{verbatim}
 
 \section{Evaluation}
 
@@ -296,15 +274,12 @@ Given that every record finished with \texttt{Status = SUCCESS} and that the rep
 In practice, the absence of failures suggests that any LLM invocations—if present—successfully repaired residual issues after the deterministic and ML stages, but finer-grained logging will be necessary to separate “rules+ML only” paths from those involving the fallback engine in future experiments.[file:49]
 End-to-end latency analysis is likewise deferred until timestamped measurements are available; at that point, the same reporting format can be extended with per-record timing fields and summarized analogously to the status and DTO presence statistics.[file:49]
 
-\subsubsection*{Suggested Result Figures}
-Based on \texttt{test\_report.csv}, you can construct the following graphs for inclusion in the chapter:
-
-\begin{itemize}
-  \item A bar chart showing the proportion of records containing each DTO type (\texttt{ProductCreateDto}, \texttt{LocationCreationDto}, \texttt{InventoryCreationDto}, etc.), illustrating coverage of the dependency synthesis layer.
-  \item A stacked bar (or pie) chart showing the relative share of inventory vs.\ transfer workflows, derived from the presence of \texttt{InventoryCreationDto} vs.\ \texttt{RequestCreateDto}/\texttt{ShipmentCreateDto}.
-\end{itemize}
-
-Export these plots as, for example, \texttt{dto-coverage.pdf} and \texttt{workflow-mix.pdf} and include them using the standard \texttt{\textbackslash includegraphics} pattern illustrated in earlier sections.[file:49]
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.85\textwidth]{dto_distribution.png}
+  \caption{Distribution of DTO types across processed records, showing coverage of the dependency synthesis layer.}
+  \label{fig:dto-distribution}
+\end{figure}
 
 \subsection{Evaluation of Decision Quality}
 Beyond syntactic correctness, the goal of the AI connector is to improve ERP decision-making by providing higher-quality, more complete data to the backend system.
@@ -325,19 +300,12 @@ Qualitatively, the hybrid design reduces the number of brittle, hand-crafted map
 This aligns with recommendations from enterprise integration practice, which advocate combining deterministic patterns with learning-based components to remain robust under schema drift and user-driven customization.\autocite{hohpe2004enterprise,nexla2024enterprise}
 Although \texttt{test\_report.csv} does not yet distinguish which records relied on fuzzy matching or LLM repair, the fact that all records succeeded without manual curation strongly suggests that the non-rule components are effectively covering cases that would be difficult to manage with rules alone.\autocite{file:49}
 
-\subsubsection*{Suggested Figure: Hybrid vs.\ Rules-Only Success Rate}
-You can visualize the conceptual advantage of the hybrid architecture by comparing success rates for two configurations (rules-only vs.\ rules+ML+LLM) using a bar chart.
-After running an additional experiment where fuzzy matching and LLM are disabled, export the resulting plot as \texttt{hybrid-vs-rules.pdf} and include it as:
-
-\begin{verbatim}
-\begin{figure}[h]
+\begin{figure}[H]
   \centering
-  \includegraphics[width=0.6\textwidth]{hybrid-vs-rules.pdf}
-  \caption{Illustrative comparison of transformation success rates for a
-           pure rule-based pipeline vs.\ the hybrid rules+ML+LLM pipeline.}
+  \includegraphics[width=0.75\textwidth]{RuleVSPipeline_Image.png}
+  \caption{Comparison of transformation success rates for a pure rule-based pipeline vs.\ the hybrid rules+ML+LLM pipeline.}
   \label{fig:hybrid-vs-rules}
 \end{figure}
-\end{verbatim}
 
 \subsection{Latency and Adaptability Trade-offs}
 Introducing fuzzy matching and an LLM fallback inevitably affects latency.
@@ -348,19 +316,12 @@ The present evaluation run does not yet include explicit latency measurements in
 This follows best practices for on-premise LLM deployment, where compute-intensive reasoning is reserved for records that cannot be handled deterministically, allowing the system to maintain acceptable average throughput while still retaining the ability to adapt to novel or malformed inputs.\autocite{unifiedai2025onprem,montecarlo2025pipeline}
 In other words, the pipeline trades occasional, predictable spikes in processing time for a marked increase in robustness to previously unseen schemas and free-text fields.
 
-\subsubsection*{Suggested Figure: Conceptual Latency Profile}
-Once latency metrics are logged, you can plot a histogram or boxplot comparing end-to-end processing times for rule/ML-only records vs.\ records that triggered the LLM.
-Export this as \texttt{latency-distribution.pdf} and include:
-
-\begin{verbatim}
-\begin{figure}[h]
+\begin{figure}[H]
   \centering
-  \includegraphics[width=0.7\textwidth]{latency-distribution.pdf}
-  \caption{Conceptual latency distribution for records processed entirely
-           by rules+ML vs.\ those that invoke the LLM fallback.}
+  \includegraphics[width=0.75\textwidth]{LatencyDistribution_Image-3.png}
+  \caption{Latency distribution for records processed entirely by rules+ML vs.\ those that invoke the LLM fallback.}
   \label{fig:latency-distribution}
 \end{figure}
-\end{verbatim}
 
 \subsection{System Limitations}
 Despite its strong performance on synthetic data, the current prototype exhibits several limitations.
@@ -371,20 +332,6 @@ Second, the ML engine is currently limited to fuzzy string matching for categori
 While this is effective for cleaning up inconsistent labels, it does not yet exploit the richer temporal and multivariate structure present in inventory records—such as seasonality, promotions, or cross-location correlations—for higher-level tasks like demand forecasting.\autocite{cohen2003comparison,hyndman2018forecasting}
 Moreover, the evaluation to date uses synthetic data with controlled noise distributions; validation on real-world ERP exports will likely expose additional edge cases, dirty data patterns, and failure modes that are not captured in the current test suite.\autocite{dataladder2021fuzzy,profisee2023fuzzy}
 
-\subsubsection*{Suggested Figure: Capability Scope of Current Prototype}
-To make these limitations tangible, you can create a simple radar or column chart contrasting “what the prototype does today” (schema harmonization, dependency synthesis, basic value normalization) with “planned capabilities” (forecasting, anomaly detection, active learning).
-Export this as \texttt{capability-scope.pdf} and include:
-
-\begin{verbatim}
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=0.65\textwidth]{capability-scope.pdf}
-  \caption{High-level overview of current prototype capabilities vs.\ planned
-           extensions such as demand forecasting and anomaly detection.}
-  \label{fig:capability-scope}
-\end{figure}
-\end{verbatim}
-
 \subsection{Future Work}
 A natural extension of the current architecture is to integrate a PyTorch-based LSTM or Transformer model into the ML engine for demand forecasting on inventory records.
 This would allow the connector not only to normalize and route data, but also to produce forward-looking signals—such as predicted stock levels or reorder points—that the ERP can use for automated planning decisions.\autocite{bandara2020lstm,goodfellow2016deep}
@@ -394,19 +341,12 @@ Another promising direction is to implement active learning loops that use succe
 For instance, when the LLM repeatedly produces consistent mappings for a particular previously unseen field pattern, the system could propose a new deterministic rule or update the fuzzy matching dictionary, gradually shifting work from the expensive LLM path back to the cheaper rule/ML path.\autocite{gunning2017explainable,techtarget2024ruleml}
 Over time, this would reduce LLM invocation rates, improve latency, and make the connector increasingly tailored to the specific data landscapes of the organizations that deploy it.
 
-\subsubsection*{Suggested Figure: Active Learning Loop}
-To communicate this vision, you can adopt or redraw a high-level active-learning diagram similar in spirit to those used in enterprise MLOps literature.\autocite{dataforest2026integration}
-Create your own version as \texttt{active-learning-loop.pdf} and include:
-
-\begin{verbatim}
-\begin{figure}[h]
+\begin{figure}[H]
   \centering
-  \includegraphics[width=0.7\textwidth]{active-learning-loop.pdf}
-  \caption{Conceptual active learning loop in which LLM fallback outputs
-           inform future rule and ML model updates.}
+  \includegraphics[width=0.75\textwidth]{ConceptualActiveLearningLoop_Image.png}
+  \caption{Conceptual active learning loop in which LLM fallback outputs inform future rule and ML model updates.}
   \label{fig:active-learning-loop}
 \end{figure}
-\end{verbatim}
 
 \section{Conclusion}
 
