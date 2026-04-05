@@ -16,25 +16,25 @@
 \contentsline {section}{\numberline {5}System AI Connector Architecture}{7}{section.5}%
 \contentsline {subsection}{\numberline {5.1}Functionality Overview}{7}{subsection.5.1}%
 \contentsline {subsection}{\numberline {5.2}Pipeline Architecture and Data Flow}{7}{subsection.5.2}%
-\contentsline {subsection}{\numberline {5.3}Layer 1: Data Normalization Layer (Adapter)}{7}{subsection.5.3}%
-\contentsline {subsection}{\numberline {5.4}Layer 2: Rule Engine}{8}{subsection.5.4}%
-\contentsline {subsection}{\numberline {5.5}Layer 3: ML Engine}{8}{subsection.5.5}%
-\contentsline {subsection}{\numberline {5.6}Layer 4: Dependency Synthesis}{8}{subsection.5.6}%
-\contentsline {subsection}{\numberline {5.7}Layer 5: Validation}{8}{subsection.5.7}%
-\contentsline {subsection}{\numberline {5.8}Layer 6: LLM Fallback Engine}{9}{subsection.5.8}%
-\contentsline {subsection}{\numberline {5.9}Layer 7: Backend Integration}{9}{subsection.5.9}%
-\contentsline {section}{\numberline {6}Design Justifications and Trade-offs}{9}{section.6}%
-\contentsline {subsection}{\numberline {6.1}When Does Type-Agnostic ERP Parsing Work?}{9}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}Impact of Fuzzy Matching on Accuracy}{9}{subsection.6.2}%
-\contentsline {subsection}{\numberline {6.3}Local LLM Performance vs. Cloud API}{9}{subsection.6.3}%
-\contentsline {section}{\numberline {7}Evaluation}{10}{section.7}%
-\contentsline {subsection}{\numberline {7.1}Test Datasets}{10}{subsection.7.1}%
-\contentsline {subsection}{\numberline {7.2}Metrics}{10}{subsection.7.2}%
-\contentsline {subsection}{\numberline {7.3}Results}{10}{subsection.7.3}%
-\contentsline {subsection}{\numberline {7.4}Evaluation of Decision Quality}{10}{subsection.7.4}%
-\contentsline {section}{\numberline {8}Discussion}{10}{section.8}%
-\contentsline {subsection}{\numberline {8.1}Hybrid vs. Pure Rule-Based Performance}{10}{subsection.8.1}%
-\contentsline {subsection}{\numberline {8.2}Latency and Adaptability Trade-offs}{11}{subsection.8.2}%
-\contentsline {subsection}{\numberline {8.3}System Limitations}{11}{subsection.8.3}%
-\contentsline {subsection}{\numberline {8.4}Future Work}{11}{subsection.8.4}%
-\contentsline {section}{\numberline {9}Conclusion}{11}{section.9}%
+\contentsline {subsection}{\numberline {5.3}Layer 1: Data Normalization Layer (Adapter)}{9}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}Layer 2: Rule Engine}{9}{subsection.5.4}%
+\contentsline {subsection}{\numberline {5.5}Layer 3: ML Engine}{10}{subsection.5.5}%
+\contentsline {subsection}{\numberline {5.6}Layer 4: Dependency Synthesis}{11}{subsection.5.6}%
+\contentsline {subsection}{\numberline {5.7}Layer 5: Validation}{11}{subsection.5.7}%
+\contentsline {subsection}{\numberline {5.8}Layer 6: LLM Fallback Engine}{12}{subsection.5.8}%
+\contentsline {subsection}{\numberline {5.9}Layer 7: Backend Integration}{13}{subsection.5.9}%
+\contentsline {section}{\numberline {6}Design Justifications and Trade-offs}{13}{section.6}%
+\contentsline {subsection}{\numberline {6.1}When Does Type-Agnostic ERP Parsing Work?}{13}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Impact of Fuzzy Matching on Accuracy}{13}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Local LLM Performance vs. Cloud API}{13}{subsection.6.3}%
+\contentsline {section}{\numberline {7}Evaluation}{14}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Test Datasets}{14}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Metrics}{14}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Results}{14}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}Evaluation of Decision Quality}{14}{subsection.7.4}%
+\contentsline {section}{\numberline {8}Discussion}{14}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Hybrid vs. Pure Rule-Based Performance}{14}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Latency and Adaptability Trade-offs}{15}{subsection.8.2}%
+\contentsline {subsection}{\numberline {8.3}System Limitations}{15}{subsection.8.3}%
+\contentsline {subsection}{\numberline {8.4}Future Work}{15}{subsection.8.4}%
+\contentsline {section}{\numberline {9}Conclusion}{15}{section.9}%

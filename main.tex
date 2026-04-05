@@ -74,89 +74,113 @@ Causal or econometric models incorporate exogenous predictors (e.g., marketing a
 Recent advances integrate ML and deep learning architectures into demand forecasting, improving nonlinear pattern recognition and feature interactions \autocite{bandara2020lstm}. Recurrent (LSTM/GRU) or transformer-based models capture long-term dependencies, outperforming traditional methods on complex datasets. 
 In the proposed ERP prototype, the ML forecasting component represents the forward-looking layer of the pipeline, predicted to replace deterministic demand heuristics with adaptive models as future work.
 
+
 \section{System AI Connector Architecture}
 
 \subsection{Functionality Overview}
-% Describe the general functionality of the connector service here.
+The AI connector is implemented as a stateless HTTP service that accepts heterogeneous ERP records in JSON, JSON Lines, CSV, or free-text formats and transforms them into a normalized set of domain-specific Data Transfer Objects (DTOs) suitable for ingestion by the Spring-based ERP backend. Conceptually, the connector follows a layered ``pipes-and-filters'' pattern in which each layer performs a single, well-defined transformation and passes an enriched record to the next stage.\autocite{hohpe2004enterprise,nexla2024enterprise}
+This design decouples concerns such as parsing, schema alignment, semantic normalization, validation, and persistence, enabling independent testing and targeted optimization of each layer.
+
+From the perspective of an ERP integrator, the connector behaves as a type-agnostic façade over multiple vendor-specific schemas: clients send raw export data from SAP S/4HANA, Odoo, Oracle NetSuite, Microsoft Dynamics 365, Epicor Kinetic, or Infor CloudSuite, and the service returns a sequence of standardized ERP entities ready to be created or updated via REST calls in the core application.\autocite{dataforest2026integration}
+This reduces the need for bespoke integration code in the ERP itself and centralizes data harmonization logic in a single, reusable component.
 
 \subsection{Pipeline Architecture and Data Flow}
-The architecture is structured as a multi-layered hybrid pipeline. The execution flow is illustrated below:
+The processing pipeline is organized into seven sequential layers, each of which adds structure, semantics, or guarantees to the input record. The execution flow is illustrated in Figure~\ref{fig:connector-architecture}.
 
-\begin{verbatim}
-HTTP Request (JSON/JSONL/CSV)
-        |
-        v
-   AdapterFactory          <- content-type detection, normalization
-        |
-        v
-   RuleEngine              <- deterministic ERP-specific field mapping
-                             (6 ERP profiles + generic fallback)
-        |
-        v
-   MLEngine                <- fuzzy value matching via RapidFuzz
-        |
-        v
-   Dependency Synthesis    <- auto-generates Product -> Location ->
-                             StorageLocation -> Storage -> Employee -> Request
-        |
-        v
-   Validator (Pydantic)    <- schema validation against 8 DTO models
-        |
-        v
-   LLMEngine (fallback)    <- Ollama/Qwen2.5-Coder for failed deterministic paths
-        |
-        v
-   BackendClient           <- REST POST to Spring ERP, UUID translation,
-                             idempotency handling
-\end{verbatim}
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[
+    node distance=1.5cm,
+    box/.style={rectangle, draw, rounded corners, minimum width=3.2cm,
+                minimum height=0.9cm, align=center},
+    >=Stealth
+  ]
+    \node[box] (req)     {HTTP Request\\(JSON / JSONL / CSV / Text)};
+    \node[box, below=of req]     (adapter) {Layer 1:\\AdapterFactory};
+    \node[box, below=of adapter] (rules)   {Layer 2:\\RuleEngine};
+    \node[box, below=of rules]   (ml)      {Layer 3:\\MLEngine};
+    \node[box, below=of ml]      (deps)    {Layer 4:\\Dependency Synthesis};
+    \node[box, below=of deps]    (val)     {Layer 5:\\Validator (Pydantic)};
+    \node[box, below=of val]     (llm)     {Layer 6:\\LLMEngine (fallback)};
+    \node[box, below=of llm]     (backend) {Layer 7:\\BackendClient};
+
+    \draw[->] (req)     -- (adapter);
+    \draw[->] (adapter) -- (rules);
+    \draw[->] (rules)   -- (ml);
+    \draw[->] (ml)      -- (deps);
+    \draw[->] (deps)    -- (val);
+    \draw[->] (val)     -- (llm);
+    \draw[->] (llm)     -- (backend);
+  \end{tikzpicture}
+  \caption{Layered architecture of the AI connector pipeline.}
+  \label{fig:connector-architecture}
+\end{figure}
+
+At a high level, the pipeline first normalizes the syntactic representation of the input (adapters), then aligns fields to an internal schema (rule engine), resolves ambiguous values (ML engine), synthesizes missing but derivable entities (dependency synthesis), enforces structural constraints (validator), and finally either repairs remaining inconsistencies via an LLM fallback or forwards valid DTOs to the backend integration layer.\autocite{montecarlo2025pipeline}
+The layered decomposition mirrors modern data pipeline architectures used in large-scale enterprise data integration, with explicit attention to idempotency, observability, and failure isolation.\autocite{nexla2024enterprise}
+
 
 \subsection{Layer 1: Data Normalization Layer (Adapter)}
-\begin{itemize}
-    \item Supported adapters: \texttt{JsonAdapter}, \texttt{JsonLinesAdapter}, \texttt{CsvAdapter}, \texttt{FreeTextAdapter}.
-    \item \texttt{AdapterFactory} selects the appropriate adapter based on the Content-Type header.
-\end{itemize}
+The first layer isolates presentation concerns by translating heterogeneous payload formats into a common in-memory representation. The \texttt{AdapterFactory} inspects the HTTP \texttt{Content-Type} header and, where necessary, filename extensions to dispatch to one of four adapters: \texttt{JsonAdapter}, \texttt{JsonLinesAdapter}, \texttt{CsvAdapter}, or \texttt{FreeTextAdapter}.\autocite{skyvia2026patterns}
+Each adapter is responsible for parsing the raw body, handling character encodings, and producing a list of canonical Python dictionaries that the downstream layers can consume uniformly.
+
+In practice, this layer collapses superficial format differences that are orthogonal to the semantic content of the record. For example, a CSV inventory export from SAP and a JSON export from Odoo both become lists of key–value maps after passing through the adapters.
+For free-text payloads, the adapter emits a pseudo-record with a single \texttt{raw\_text} field, which is then primarily handled by the LLM fallback in later stages.
+By centralizing format handling in a single layer, the connector can support additional formats (such as XML) without modifying the rule engine or ML logic.
 
 \subsection{Layer 2: Rule Engine}
-\begin{itemize}
-    \item 6 ERP-specific mapping dictionaries (Odoo, SAP S/4HANA, Epicor Kinetic, Oracle NetSuite, Microsoft Dynamics 365, Infor CloudSuite) plus a generic fallback.
-    \item 10-step processing: envelope extraction $\rightarrow$ flattening $\rightarrow$ key mapping $\rightarrow$ date normalization $\rightarrow$ compound field splitting $\rightarrow$ storage name synthesis $\rightarrow$ type coercion $\rightarrow$ context-aware re-mapping $\rightarrow$ address flattening $\rightarrow$ volume derivation.
-    \item Characteristics: Deterministic, zero-latency, fully testable.
-\end{itemize}
+The second layer performs deterministic schema alignment using vendor-specific mapping dictionaries. For each of the six supported ERP systems (Odoo, SAP S/4HANA, Epicor Kinetic, Oracle NetSuite, Microsoft Dynamics 365, Infor CloudSuite), the rule engine maintains a mapping from known source keys and patterns to the internal canonical field names, plus a generic fallback profile for unknown vendors.
+The transformation proceeds through a fixed ten-step pipeline: envelope extraction $\rightarrow$ flattening $\rightarrow$ key mapping $\rightarrow$ date normalization $\rightarrow$ compound field splitting $\rightarrow$ storage name synthesis $\rightarrow$ type coercion $\rightarrow$ context-aware re-mapping $\rightarrow$ address flattening $\rightarrow$ volume derivation.
+
+Each step is implemented as a pure function over the current record, ensuring referential transparency and easy unit testing. Envelope extraction removes vendor-specific wrappers (for instance, nested \texttt{results} or \texttt{data} keys), while flattening converts nested objects into a single-level key space using dot or underscore notation.\autocite{doan2012principles}
+Date normalization and type coercion enforce internal standards (e.g., ISO~8601 timestamps, numeric quantities), and context-aware re-mapping resolves fields whose interpretation depends on other attributes (for example, mapping a generic \texttt{status} field differently for shipment vs. inventory records).
+Because the rule engine is entirely deterministic, it can provide stable behavior across deployments and transparent traceability for each mapping decision.
 
 \subsection{Layer 3: ML Engine}
-\begin{itemize}
-    \item \texttt{RapidFuzz} fuzzy matching (\texttt{token\_sort\_ratio}, threshold 80) for value normalization (e.g., usage types, UoM, country codes).
-    \item \texttt{scikit-learn} integration available for future model extensions (demand forecasting).
-    \item Lightweight execution requiring no GPU.
-\end{itemize}
+The ML engine complements the rule layer by resolving ambiguities that cannot be handled via simple dictionary lookup or pattern matching. In the current implementation, it focuses on fuzzy value normalization using the \texttt{RapidFuzz} library, which provides efficient token-based similarity measures such as \texttt{token\_sort\_ratio}.\autocite{rapidfuzz2020github,cran2024rapidfuzz}
+For selected categorical fields (usage types, units of measure, country and currency codes), the engine compares the observed value against a curated list of canonical options and selects the best match if the similarity score exceeds a threshold (80 in this prototype).
+
+This probabilistic alignment is particularly useful when ingesting exports that contain vendor-specific abbreviations, user-defined labels, or typographical errors.
+Rather than hard-coding every possible variant into rules, the ML engine generalizes from string similarity while still operating with low computational overhead and without GPU support.
+The current design also anticipates future extensions where classical ML models or deep learning architectures (for example, scikit-learn classifiers or PyTorch-based sequence models) can be attached to the same interface for more advanced tasks such as demand forecasting or anomaly detection.\autocite{dataforest2026integration}
 
 \subsection{Layer 4: Dependency Synthesis}
-\begin{itemize}
-    \item For \texttt{inventory} and \texttt{transfer} record types, the pipeline auto-generates the full entity dependency chain.
-    \item Deterministic UUID generation (\texttt{string\_to\_uuid}) ensures idempotency across repeated imports.
-    \item Transfer records additionally synthesize a system Employee and Request entity.
-\end{itemize}
+Many ERP operations require a consistent set of related entities (e.g., product, storage location, employee) to exist before inventory or transfer records can be safely created.
+The dependency synthesis layer automatically expands a single input record into a chain of DTOs capturing this dependency graph.
+For \texttt{inventory} and \texttt{transfer} record types, the pipeline generates a \texttt{ProductCreateDto}, \texttt{LocationCreationDto}, \texttt{StorageLocationCreationDto}, \texttt{StorageCreationDto}, and finally the primary \texttt{InventoryCreationDto} or \texttt{RequestCreateDto}, along with auxiliary entities such as \texttt{EmployeeCreateDto} for system-generated users.
+
+To preserve idempotency, each entity key is derived from a deterministic \texttt{string\_to\_uuid} function that hashes stable business identifiers (such as external IDs or composite keys) into UUIDs.
+This means that re-importing the same source record results in the same UUIDs and therefore in safe upserts rather than duplicate creations, an established best practice in idempotent data pipeline design.\autocite{tacnode2026patterns}
+By synthesizing dependencies centrally within the connector, the backend ERP remains simpler: it can assume that the necessary entities will either already exist or be created in a consistent, reproducible order.
 
 \subsection{Layer 5: Validation}
-\begin{itemize}
-    \item Pydantic v2 models for 8 Data Transfer Objects (DTOs): \texttt{ProductCreateDto}, \texttt{LocationCreationDto}, \texttt{StorageLocationCreationDto}, \texttt{StorageCreationDto}, \texttt{InventoryCreationDto}, \texttt{RequestCreateDto}, \texttt{ShipmentCreateDto}, \texttt{EmployeeCreateDto}.
-    \item \texttt{Validator.determine\_model()} uses heuristic key-set matching combined with \texttt{record\_type} hints.
-\end{itemize}
+After dependency synthesis, the pipeline performs structural and semantic validation using a set of eight Pydantic v2 models: \texttt{ProductCreateDto}, \texttt{LocationCreationDto}, \texttt{StorageLocationCreationDto}, \texttt{StorageCreationDto}, \texttt{InventoryCreationDto}, \texttt{RequestCreateDto}, \texttt{ShipmentCreateDto}, and \texttt{EmployeeCreateDto}.
+The \texttt{Validator.determine\_model()} method inspects the key set of each intermediate record, optionally guided by a \texttt{record\_type} hint, and selects the appropriate DTO model to apply.\autocite{pydantic2020docs}
+Pydantic then enforces type constraints, required fields, and custom validators (for example, non-negative quantities or valid enumerations), producing either a well-typed object or a detailed error description.
+
+Using a formal validation library at this stage serves two purposes.
+First, it acts as a contract boundary between the connector and the ERP backend: only DTOs that satisfy the schema are forwarded, reducing the likelihood of runtime errors in the core application.\autocite{daily2024pydantic}
+Second, it provides a natural integration point for automated tests and monitoring, as validation failures can be logged and analyzed to refine rules or ML logic over time.
+Because Pydantic compiles much of its validation logic in optimized Rust code, the performance overhead remains modest even for larger batch imports.\autocite{pydantic2019why}
 
 \subsection{Layer 6: LLM Fallback Engine}
-\begin{itemize}
-    \item Local Ollama instance running the \texttt{qwen2.5-coder:7b} model.
-    \item Invoked exclusively when the rule engine and validation fail, thereby preserving overall system performance.
-    \item Structured JSON output is enforced via Ollama's \texttt{format: json} parameter.
-    \item Prompt engineering leverages schema descriptions alongside the raw record to ensure structured output.
-\end{itemize}
+Despite careful rule design and fuzzy matching, some records will still fail validation due to previously unseen schemas, free-text descriptions, or edge-case formats.
+The LLM fallback layer addresses this residual uncertainty by invoking a locally hosted instance of the \texttt{qwen2.5-coder:7b} model via the Ollama runtime.\autocite{daily2026ollama}
+The connector constructs a prompt that includes (i) a natural-language description of the target DTO schemas, (ii) any partial mappings obtained from earlier layers, and (iii) the raw input record (or free text), and requests a strictly formatted JSON response by enabling \texttt{format: json} in the Ollama configuration.
+
+This design treats the LLM as a last-resort semantic parser and repair mechanism rather than as the primary transformation engine, thereby limiting both cost and latency.
+Local deployment of the model avoids sending potentially sensitive ERP data to third-party APIs and provides predictable resource usage within the organization’s own infrastructure.\autocite{daily2026ollama}
+In the evaluation phase, the invocation rate of this layer serves as an indirect measure of rule and ML coverage: a lower LLM call frequency indicates that earlier deterministic stages are successfully handling most records.
 
 \subsection{Layer 7: Backend Integration}
-\begin{itemize}
-    \item \texttt{BackendClient} routes processed data to 8 distinct REST endpoints.
-    \item A UUID translation map handles foreign-key references between sequentially created entities.
-    \item Idempotency is maintained via duplicate detection through response body inspection, with a backend lookup fallback for ID recovery.
-\end{itemize}
+The final layer, \texttt{BackendClient}, is responsible for materializing the validated DTOs inside the ERP system through REST calls to eight distinct endpoints.
+Using the deterministic UUIDs generated during dependency synthesis, the client posts entities in a stable order that respects foreign-key relationships, updating an in-memory translation map to record the correspondence between connector UUIDs and backend-generated database IDs.
+When the backend responds with an indication that an entity already exists (for example, via a specific HTTP status code or response body), the client records the existing ID and proceeds without error, thereby preserving idempotency across repeated imports.\autocite{montecarlo2025pipeline}
+
+In addition to creation and update operations, the backend integration layer is designed to handle transient failures and retries gracefully.
+Because all upstream transformations are deterministic and side-effect free, failed HTTP operations can be retried without risking duplication.
+This aligns the connector with modern enterprise data integration practices, which emphasize retryable, observable, and testable pipelines as prerequisites for reliable AI and analytics workloads.\autocite{samta2026engineering}
+Overall, the backend integration layer closes the loop between the AI-enhanced connector and the operational ERP, making the upstream intelligence directly actionable in production workflows.
 
 \section{Design Justifications and Trade-offs}
 \subsection{When Does Type-Agnostic ERP Parsing Work?}
