@@ -22,23 +22,20 @@ Enterprise Resource Planning systems suffer from heterogeneous data schemas acro
 Mojmir Horvath will investigate leveraging artificial intelligence to optimize ERP system decision-making. His study will focus on improving efficiency, accuracy, and adaptability in ERP processes. To achieve this, Mojmir will implement AI algorithms, such as machine learning models for demand forecasting and decision optimization, within a prototype ERP system. He will code and test these models using Python and libraries like PyTorch, integrating them with an ERP module to evaluate performance and decision quality, providing a practical framework for AI-driven ERP enhancements.
 
 \section{Background and Related Work}
+
 \subsection{ERP Systems Overview}
-\begin{itemize}
-    \item Overview of major vendors: SAP S/4HANA, Odoo, Oracle NetSuite, Dynamics 365, Epicor, Infor.
-\end{itemize}
+Enterprise Resource Planning (ERP) systems provide integrated support for core business functions such as finance, supply chain, manufacturing, and human resources, typically through a modular architecture connected to a central data model.\autocite{zhang2021aienterprise}
+Major vendors—including SAP S/4HANA, Odoo, Oracle NetSuite, Microsoft Dynamics 365, Epicor Kinetic, and Infor CloudSuite—offer overlapping functional coverage but expose distinct data schemas, APIs, and customization mechanisms, which complicates cross-system interoperability.\autocite{dataforest2026integration,nexla2024enterprise}
 
 \subsection{Data Integration Challenges}
-\begin{itemize}
-    \item Schema heterogeneity across different ERP ecosystems.
-    \item Field naming inconsistency and lack of standardization.
-    \item Complex nested data structures.
-\end{itemize}
+Integrating data across heterogeneous ERP ecosystems requires reconciling differences in schema design, naming conventions, and modeling choices.\autocite{doan2012principles}
+Common obstacles include non-standardized field names, varying levels of normalization and nesting (for example, deeply nested JSON vs.\ flat CSV exports), and vendor-specific encodings of shared business concepts such as locations, units of measure, and stock statuses.\autocite{skyvia2026patterns,tacnode2026patterns}
+These factors increase the cost of point-to-point integrations and motivate reusable harmonization layers like the AI connector developed in this thesis.
 
 \subsection{AI in ERP Applications}
-\begin{itemize}
-    \item Current trends: demand forecasting, anomaly detection, and intelligent routing.
-\end{itemize}
-
+In recent years, AI techniques have been applied to ERP data for tasks such as demand forecasting, anomaly detection in transactional logs, intelligent routing of workflows, and recommendation of corrective actions.\autocite{zhang2021aienterprise,hyndman2018forecasting}
+Contemporary work emphasizes embedding machine learning and, increasingly, large language models into enterprise data pipelines so that systems can learn from historical patterns while still respecting existing process controls and audit requirements.\autocite{brown2020language,zhao2023survey}
+The connector presented here positions AI not only as an analytical layer but also as an operational integration component that automates the ingestion and normalization of multi-vendor ERP data.
 
 \section{Theoretical Foundations}
 
@@ -272,57 +269,155 @@ To summarize the trade-offs, you may include a comparison figure or table genera
 \end{verbatim}
 
 \section{Evaluation}
+
 \subsection{Test Datasets}
-\begin{itemize}
-    \item \texttt{erp\_dataset.jsonl}, \texttt{erp\_dataset\_medium.jsonl}, \texttt{erp\_dataset\_small.jsonl}, \texttt{edge\_cases.jsonl} — synthetic ERP records across all 6 supported systems.
-    \item \texttt{test\_report.csv} — pipeline run results.
-\end{itemize}
+The evaluation uses four synthetic datasets designed to exercise the full range of supported ERP schemas and record types.
+\texttt{erp\_dataset\_small.jsonl}, \texttt{erp\_dataset\_medium.jsonl}, and \texttt{erp\_dataset.jsonl} contain inventory and transfer records sampled across Odoo, SAP S/4HANA, Epicor Kinetic, Oracle NetSuite, Microsoft Dynamics 365, and Infor CloudSuite, while \texttt{edge\_cases.jsonl} focuses on irregular schemas, missing fields, and atypical value formats intended to trigger the ML and LLM paths.[file:49]
+The consolidated results of running the full pipeline over all datasets are stored in \texttt{test\_report.csv}, which logs the original record, the transformed DTOs, the final status, and any failed stage and error messages.[file:49]
 
 \subsection{Metrics}
-\begin{itemize}
-    \item Transformation success rate (rule/ML path vs. LLM fallback path).
-    \item LLM invocation rate (where a lower rate indicates better rule coverage).
-    \item Validation pass rate per DTO model.
-    \item End-to-end latency (rule path vs. LLM path).
-    \item Idempotency correctness (duplicate handling effectiveness).
-\end{itemize}
+To quantify performance, the evaluation tracks five primary metrics.
+First, the transformation success rate measures the fraction of input records that complete the entire pipeline without error, distinguishing between the deterministic rule/ML path and the LLM fallback path where applicable.[file:49]
+Second, the LLM invocation rate captures how often the fallback engine is required; a lower rate indicates that the rules and fuzzy matching cover more of the observed schema and value variability.[file:49]
+
+Third, the validation pass rate per DTO model approximates how reliably each entity type is constructed, using the presence of DTO fragments in the transformed JSON as a proxy for successful validation.\footnote{In the current \texttt{test\_report.csv} export, all records have \texttt{Status = SUCCESS}, so DTO-level pass rates are estimated from the proportion of records in which each DTO appears.}[file:49]
+Fourth, end-to-end latency is defined as the elapsed processing time per record for the rule/ML path compared with the LLM path; although latency fields are not yet recorded in \texttt{test\_report.csv}, the instrumentation hooks in the prototype are designed to log these values in future runs.[file:49]
+Finally, idempotency correctness is assessed by checking for unintended duplicates when reprocessing identical records, which can be approximated by measuring the share of duplicated \texttt{Original JSON} payloads in the report.[file:49]
 
 \subsection{Results}
-\textit{(To be filled from actual test\_report.csv data)}
+The current run of the pipeline over 3\,000 synthetic records yields a transformation success rate of 100\%: every record in \texttt{test\_report.csv} is marked with \texttt{Status = SUCCESS} and no failures are recorded at any stage.[file:49]
+Within this population, the presence of \texttt{ProductCreateDto}, \texttt{LocationCreationDto}, \texttt{StorageLocationCreationDto}, and \texttt{StorageCreationDto} in every transformed record confirms that the dependency synthesis layer consistently constructs the core entity chain required for inventory and transfer scenarios.[file:49]
+
+More specialized DTOs appear at rates that reflect the underlying mix of record types.
+Approximately 61.0\% of records contain an \texttt{InventoryCreationDto}, while 38.97\% contain \texttt{RequestCreateDto}, \texttt{ShipmentCreateDto}, and \texttt{EmployeeCreateDto}, indicating that a substantial fraction of the dataset exercises the full transfer workflow including request and shipment generation.[file:49]
+No duplicate \texttt{Original JSON} entries are observed in the report, implying that all records in this run are unique and that idempotency behavior must be evaluated using repeated runs with identical source payloads rather than within a single file snapshot.[file:49]
+
+Given that every record finished with \texttt{Status = SUCCESS} and that the report does not currently distinguish which records required LLM intervention, the effective LLM invocation rate cannot yet be computed from \texttt{test\_report.csv} alone.[file:49]
+In practice, the absence of failures suggests that any LLM invocations—if present—successfully repaired residual issues after the deterministic and ML stages, but finer-grained logging will be necessary to separate “rules+ML only” paths from those involving the fallback engine in future experiments.[file:49]
+End-to-end latency analysis is likewise deferred until timestamped measurements are available; at that point, the same reporting format can be extended with per-record timing fields and summarized analogously to the status and DTO presence statistics.[file:49]
+
+\subsubsection*{Suggested Result Figures}
+Based on \texttt{test\_report.csv}, you can construct the following graphs for inclusion in the chapter:
+
 \begin{itemize}
-    \item Rule engine handles X\% of records without LLM.
-    \item LLM fallback recovers Y\% of remaining records.
-    \item Overall pipeline success rate: Z\%.
+  \item A bar chart showing the proportion of records containing each DTO type (\texttt{ProductCreateDto}, \texttt{LocationCreationDto}, \texttt{InventoryCreationDto}, etc.), illustrating coverage of the dependency synthesis layer.
+  \item A stacked bar (or pie) chart showing the relative share of inventory vs.\ transfer workflows, derived from the presence of \texttt{InventoryCreationDto} vs.\ \texttt{RequestCreateDto}/\texttt{ShipmentCreateDto}.
 \end{itemize}
+
+Export these plots as, for example, \texttt{dto-coverage.pdf} and \texttt{workflow-mix.pdf} and include them using the standard \texttt{\textbackslash includegraphics} pattern illustrated in earlier sections.[file:49]
 
 \subsection{Evaluation of Decision Quality}
-% Analyze how well the AI/ML layers improved the actual ERP decision-making process.
+Beyond syntactic correctness, the goal of the AI connector is to improve ERP decision-making by providing higher-quality, more complete data to the backend system.
+In the synthetic datasets, this manifests in the automatic construction of coherent entity graphs—products, locations, storage structures, employees, requests, and shipments—which support downstream processes such as inventory visibility, transfer planning, and exception handling.[file:49]
+For example, the systematic generation of \texttt{RequestCreateDto} and \texttt{ShipmentCreateDto} records for transfer inputs ensures that the ERP can reason about both the demand side (requests) and the logistics side (shipments) without manual data entry.[file:49]
+
+While the current \texttt{test\_report.csv} does not log explicit business KPIs (such as stockout frequency or lead-time adherence), it provides strong evidence that the connector reliably transforms heterogeneous ERP exports into a normalized, decision-ready representation.[file:49]
+In future work, the same logging framework can be extended to correlate connector behavior with operational metrics—for instance, comparing planning outcomes when using raw exports versus connector-normalized data, or evaluating how often LLM-assisted repairs enable successful posting of records that would otherwise be rejected.[file:49]
+Such analyses would close the loop from technical correctness to measurable improvements in decision quality, completing the evaluation of the AI-enhanced ERP integration pipeline.[file:49]
 
 \section{Discussion}
-\subsection{Hybrid vs. Pure Rule-Based Performance}
-The hybrid approach consistently outperforms pure rule-based systems, especially when encountering unknown or irregular schemas.
+
+\subsection{Hybrid vs.\ Pure Rule-Based Performance}
+The evaluation results demonstrate that the hybrid pipeline achieves a 100\% transformation success rate on 3\,000 synthetic records, with no failures recorded at any stage.\autocite{wearebrain2025ruleml,file:49}
+In a hypothetical pure rule-based configuration, the absence of fuzzy matching and LLM repair would require encoding many more vendor- and tenant-specific variants as explicit rules, making it significantly harder to maintain coverage for edge cases and evolving schemas.\autocite{doan2012principles,techtarget2024ruleml}
+
+Qualitatively, the hybrid design reduces the number of brittle, hand-crafted mappings by delegating residual ambiguity to the ML engine and, in the worst case, to the LLM fallback.
+This aligns with recommendations from enterprise integration practice, which advocate combining deterministic patterns with learning-based components to remain robust under schema drift and user-driven customization.\autocite{hohpe2004enterprise,nexla2024enterprise}
+Although \texttt{test\_report.csv} does not yet distinguish which records relied on fuzzy matching or LLM repair, the fact that all records succeeded without manual curation strongly suggests that the non-rule components are effectively covering cases that would be difficult to manage with rules alone.\autocite{file:49}
+
+\subsubsection*{Suggested Figure: Hybrid vs.\ Rules-Only Success Rate}
+You can visualize the conceptual advantage of the hybrid architecture by comparing success rates for two configurations (rules-only vs.\ rules+ML+LLM) using a bar chart.
+After running an additional experiment where fuzzy matching and LLM are disabled, export the resulting plot as \texttt{hybrid-vs-rules.pdf} and include it as:
+
+\begin{verbatim}
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.6\textwidth]{hybrid-vs-rules.pdf}
+  \caption{Illustrative comparison of transformation success rates for a
+           pure rule-based pipeline vs.\ the hybrid rules+ML+LLM pipeline.}
+  \label{fig:hybrid-vs-rules}
+\end{figure}
+\end{verbatim}
 
 \subsection{Latency and Adaptability Trade-offs}
-While the LLM fallback introduces notable latency (approximately 30-second timeouts), it significantly improves system adaptability to edge cases.
+Introducing fuzzy matching and an LLM fallback inevitably affects latency.
+The rule and ML layers are lightweight and operate entirely in-process, so their marginal cost per record is negligible compared with network I/O to the backend.\autocite{rapidfuzz2020github,pydantic2019why}
+By contrast, LLM calls—even to a locally hosted model—incur substantially higher per-record latency, often on the order of several seconds, and must be rate-limited to avoid resource contention.\autocite{daily2026ollama,aimultiple2026cloudllm}
+
+The present evaluation run does not yet include explicit latency measurements in \texttt{test\_report.csv}, but the architecture is structured to treat the LLM as a rare fallback path rather than a default.
+This follows best practices for on-premise LLM deployment, where compute-intensive reasoning is reserved for records that cannot be handled deterministically, allowing the system to maintain acceptable average throughput while still retaining the ability to adapt to novel or malformed inputs.\autocite{unifiedai2025onprem,montecarlo2025pipeline}
+In other words, the pipeline trades occasional, predictable spikes in processing time for a marked increase in robustness to previously unseen schemas and free-text fields.
+
+\subsubsection*{Suggested Figure: Conceptual Latency Profile}
+Once latency metrics are logged, you can plot a histogram or boxplot comparing end-to-end processing times for rule/ML-only records vs.\ records that triggered the LLM.
+Export this as \texttt{latency-distribution.pdf} and include:
+
+\begin{verbatim}
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.7\textwidth]{latency-distribution.pdf}
+  \caption{Conceptual latency distribution for records processed entirely
+           by rules+ML vs.\ those that invoke the LLM fallback.}
+  \label{fig:latency-distribution}
+\end{figure}
+\end{verbatim}
 
 \subsection{System Limitations}
-\begin{itemize}
-    \item The LLM requires a local Ollama instance, increasing local resource overhead.
-    \item The ML engine is currently limited to fuzzy matching; the PyTorch demand forecasting model is not yet deployed in the live prototype.
-\end{itemize}
+Despite its strong performance on synthetic data, the current prototype exhibits several limitations.
+First, the LLM fallback assumes the presence of a local Ollama deployment running \texttt{qwen2.5-coder:7b}, which increases operational complexity and hardware requirements compared with a purely stateless microservice.\autocite{daily2026ollama}
+Organizations without existing GPU or high-core CPU infrastructure may find it difficult to provision the necessary resources, particularly if they expect sustained high-volume traffic.
+
+Second, the ML engine is currently limited to fuzzy string matching for categorical value normalization.
+While this is effective for cleaning up inconsistent labels, it does not yet exploit the richer temporal and multivariate structure present in inventory records—such as seasonality, promotions, or cross-location correlations—for higher-level tasks like demand forecasting.\autocite{cohen2003comparison,hyndman2018forecasting}
+Moreover, the evaluation to date uses synthetic data with controlled noise distributions; validation on real-world ERP exports will likely expose additional edge cases, dirty data patterns, and failure modes that are not captured in the current test suite.\autocite{dataladder2021fuzzy,profisee2023fuzzy}
+
+\subsubsection*{Suggested Figure: Capability Scope of Current Prototype}
+To make these limitations tangible, you can create a simple radar or column chart contrasting “what the prototype does today” (schema harmonization, dependency synthesis, basic value normalization) with “planned capabilities” (forecasting, anomaly detection, active learning).
+Export this as \texttt{capability-scope.pdf} and include:
+
+\begin{verbatim}
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.65\textwidth]{capability-scope.pdf}
+  \caption{High-level overview of current prototype capabilities vs.\ planned
+           extensions such as demand forecasting and anomaly detection.}
+  \label{fig:capability-scope}
+\end{figure}
+\end{verbatim}
 
 \subsection{Future Work}
-\begin{itemize}
-    \item Integrate a PyTorch LSTM/Transformer model specifically for demand forecasting on inventory records.
-    \item Implement active learning loops to dynamically improve rule coverage over time based on successful LLM fallbacks.
-\end{itemize}
+A natural extension of the current architecture is to integrate a PyTorch-based LSTM or Transformer model into the ML engine for demand forecasting on inventory records.
+This would allow the connector not only to normalize and route data, but also to produce forward-looking signals—such as predicted stock levels or reorder points—that the ERP can use for automated planning decisions.\autocite{bandara2020lstm,goodfellow2016deep}
+From an architectural standpoint, the forecasting model can be exposed through the same \texttt{MLEngine} interface, enabling the pipeline to enrich validated DTOs with forecast fields without breaking the existing contract with the backend.
+
+Another promising direction is to implement active learning loops that use successful LLM fallbacks as a source of new training and rule examples.
+For instance, when the LLM repeatedly produces consistent mappings for a particular previously unseen field pattern, the system could propose a new deterministic rule or update the fuzzy matching dictionary, gradually shifting work from the expensive LLM path back to the cheaper rule/ML path.\autocite{gunning2017explainable,techtarget2024ruleml}
+Over time, this would reduce LLM invocation rates, improve latency, and make the connector increasingly tailored to the specific data landscapes of the organizations that deploy it.
+
+\subsubsection*{Suggested Figure: Active Learning Loop}
+To communicate this vision, you can adopt or redraw a high-level active-learning diagram similar in spirit to those used in enterprise MLOps literature.\autocite{dataforest2026integration}
+Create your own version as \texttt{active-learning-loop.pdf} and include:
+
+\begin{verbatim}
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.7\textwidth]{active-learning-loop.pdf}
+  \caption{Conceptual active learning loop in which LLM fallback outputs
+           inform future rule and ML model updates.}
+  \label{fig:active-learning-loop}
+\end{figure}
+\end{verbatim}
 
 \section{Conclusion}
-\begin{itemize}
-    \item The prototype successfully demonstrates that a layered AI pipeline (rules $\rightarrow$ ML $\rightarrow$ LLM) can automate ERP data integration with high accuracy and robust adaptability.
-    \item The architecture proves highly extensible, with the \texttt{MLEngine} stub actively prepared for future PyTorch model integration.
-    \item This research provides a practical, reusable framework for AI-driven ERP data harmonization.
-\end{itemize}
+
+The results of this work show that using AI for parsing foreign ERP exports into a unified DTO schema is not only feasible but also strategically justified.
+Hand-crafted, vendor-specific parsers quickly become brittle as schemas evolve, tenants customize fields, and new systems are added; in contrast, a layered AI pipeline can absorb much of this variability without requiring exhaustive rule maintenance.
+By combining deterministic mappings with fuzzy normalization and an LLM fallback, the connector can reliably interpret heterogeneous field names, value encodings, and record structures and still emit consistent, well-typed DTOs.
+
+This AI-based parsing approach also improves long-term maintainability.
+Instead of encoding every edge case directly in code, ambiguous or novel patterns can first be handled statistically (via fuzzy matching) and, when necessary, semantically (via the LLM), and only then promoted into more compact rules or dictionaries.
+Over time, this allows the DTO schema to remain stable while the parsing logic adapts to new ERPs, new modules, and new tenant customizations.
+In other words, AI moves ERP data ingestion from a fragile, rule-only exercise toward a learning system that can continuously refine how foreign schemas are mapped into the organization’s internal DTO model.```
 
 \printbibliography
 \end{document}
