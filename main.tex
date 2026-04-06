@@ -249,6 +249,25 @@ For organizations with spiky workloads or no appetite for managing AI infrastruc
   \label{fig:llm-local-vs-cloud}
 \end{figure}
 
+\subsection{Choice of Small Local LLMs}
+
+The prototype connector deliberately uses a small, locally hosted LLM instance rather than a large cloud model.
+Concretely, it operates Qwen2.5-Coder 7B via Ollama on commodity hardware, relying on quantization and CPU‑friendly runtimes so that the service can run without access to large, dedicated GPUs.\autocite{daily2026ollama,makiai2025qwen}
+This reflects the architectural goal of treating the LLM primarily as an on‑premise fallback semantic parser over text and JSON inside an integration pipeline, not as a centralized, GPU-bound foundation model.
+
+There is now a rich ecosystem of compact models suitable for this role.
+Qwen2.5 7B, available directly through the Ollama model library, is optimized for code and structured text generation and is therefore well suited for tasks like JSON extraction, schema-aware transformation, and free‑text normalization.\autocite{ollama2025qwen}
+Mistral 7B and similar models can also be run locally with modest memory footprints and have been shown to deliver strong general-purpose language performance on laptops and workstations, making them realistic candidates for on‑premise ERP integrations.\autocite{getdeploying2025mistral,amax2023mistral}
+Other open-weight models such as Llama 3 8B demonstrate that competitive performance is achievable on CPUs or small GPUs when combined with runtimes like llama.cpp and desktop tools such as LM Studio.\autocite{reintech2026llama,premai2026selfhosted}
+
+Beyond purely text-centric models, recent work has explored truly multimodal small language models that are still compact enough for edge deployment.
+EAGLE and EAGLE‑A, introduced by Koska and Horváth, are 4.3–4.5\,B parameter models that combine a small language backbone with vision and audio towers while remaining deployable on resource‑constrained devices through quantization‑aware training.\autocite{koskahorvath2024eagle}
+Although the connector in this thesis focuses on text and JSON ERP exports, models like EAGLE show how similar small‑scale architectures could be extended to parse scanned documents, screenshots of ERP screens, or other visual artifacts into the same DTO schema, effectively adding multimodal ingestion capabilities without abandoning the small‑model deployment philosophy.
+
+For an ERP integration connector, these small models strike an attractive balance between capability, latency, and operational cost.
+Running them locally via frameworks like Ollama or llama.cpp provides strong data privacy guarantees and predictable performance, while avoiding per‑token cloud fees and external dependencies.\autocite{daily2026ollama,premai2026selfhosted}
+Because the connector invokes the LLM only as a last resort after rules and fuzzy matching have been applied, even a relatively modest machine can sustain the required throughput, making small LLMs—and, in future, multimodal variants such as EAGLE for text+JSON+document inputs—a practical and future‑proof choice for this integration setting.\autocite{koskahorvath2024eagle}
+
 \section{Evaluation}
 
 \subsection{Test Datasets}
