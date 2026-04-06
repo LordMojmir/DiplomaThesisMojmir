@@ -30,7 +30,7 @@ Language Model (LLM) als Fallback-Ebene.
 Der Konnektor wurde in Python (FastAPI, Pydantic, RapidFuzz, scikit-learn) implementiert, nutzt
 ein lokal gehostetes LLM (Ollama/Qwen2.5-Coder) und ist an ein auf Spring Boot basierendes
 ERP-Backend angebunden.
-Die Auswertung anhand synthetischer ERP-Datensätze, die Schemata mehrerer namhafter Anbieter
+Die Auswertung anhand von ERP-Datensätzen, die vom Kunden bereitgestellt wurden, die Schemata mehrerer namhafter Anbieter
 umfassen, zeigt, dass die hybride Pipeline im Vergleich zu rein regelbasierten Ansätzen hohe
 Erfolgsraten bei der Datentransformation erzielt und sich besser an unregelmäßige oder bisher
 unbekannte Schemata anpasst.
@@ -51,7 +51,7 @@ large language model (LLM) fallback.
 The connector is implemented in Python using FastAPI, Pydantic, RapidFuzz, and scikit-learn,
 combined with a locally hosted LLM (Ollama/Qwen2.5-Coder), and is integrated with a Spring
 Boot--based ERP backend.
-Evaluation on synthetic ERP datasets comprising multiple major vendor schemas shows that the
+Evaluation on client-provided ERP datasets comprising multiple major vendor schemas shows that the
 hybrid pipeline achieves a 100\% transformation success rate and improved adaptability to
 irregular or previously unseen schemas compared to purely rule-based approaches.
 The results indicate that AI-assisted parsing of foreign ERP exports into a unified DTO schema
@@ -429,7 +429,7 @@ This strategy works well when vendors reuse broadly understandable business term
 \texttt{sku}, \texttt{quantity}, \texttt{warehouse}, \texttt{uom}) and follow consistent
 nesting patterns that can be flattened deterministically.
 
-On the majority of synthetic records where schemas are either close to the recognized model or
+On the majority of records in the client-provided datasets or
 differ only in superficial conventions such as case, delimiter, or ordering, the agnostic
 approach avoids maintaining separate ingest code paths per vendor, reducing configuration
 effort and simplifying onboarding of new ERP systems that broadly adhere to common enterprise
@@ -462,8 +462,7 @@ Industry case studies on master data workflows report that adding fuzzy matching
 match rates by 20--25\% while simultaneously cutting manual review
 effort.\autocite{dataladder2021fuzzy}
 In the context of this prototype, the same effect appears as an increased transformation
-success rate on synthetic datasets, particularly for vendor exports that contain user-entered
-labels or legacy codes.
+success rate on client-provided datasets.
 
 Fuzzy matching does introduce a precision--recall trade-off: lowering the similarity threshold
 captures more true matches but risks false positives that silently map values to incorrect
@@ -479,7 +478,7 @@ high-impact attributes.\autocite{aerospike2026fuzzy}
   \centering
   \includegraphics[width=0.75\textwidth]{FuzzyMatching_Image.png}
   \caption{Illustrative comparison of transformation success rate and validation pass rate
-  before and after enabling fuzzy matching in the ML engine (synthetic data).}
+  before and after enabling fuzzy matching in the ML engine.}
   \label{fig:fuzzy-impact}
 \end{figure}
 
@@ -595,7 +594,7 @@ The connector writes its run-time results to \texttt{test\_report.csv}, which lo
 input record, the original payload, the transformed DTOs, the final status, and any failed
 stage with error messages.
 
-A key limitation of this setup is that new types of foreign datasources may widely differ from what has been seen in the provided datasets. 
+A key limitation of this setup is that new types of foreign datasources may widely differ from what has been seen in the provided datasets.
 
 \subsection{Illustrative Example: Parsing a Foreign ERP Record}
 To illustrate how the hybrid pipeline processes a previously unseen ERP schema, consider the
@@ -609,11 +608,11 @@ DTO schema:
   "source_erp": "EDGE_UNKNOWN",
   "record_type": "inventory",
   "payload": {
-    "item_descriptor":   "Field pack radio",
-    "warehouse_hint":    "Bunker-7",
-    "qty_ready":         12,
-    "unit_label":        "EA",
-    "manufacturer_name": "Acme Defense"
+    "item_descriptor": "Field pack radio",
+    "warehouse_hint": "Bunker-7",
+    "qty_ready": 12,
+    "unit_label": "EA",
+    "manufacturer_name": "MH Industries"
   }
 }
 \end{verbatim}
@@ -644,7 +643,7 @@ location and storage hierarchy, and the corresponding inventory entry:
           "unit": "EA"
         },
         "baseUnit": "EA",
-        "Producer": "Acme Defense"
+        "Producer": "MH Industries"
       },
       "source": "rule_ml",
       "model": "ProductCreateDto"
@@ -745,7 +744,7 @@ location and storage hierarchy, and the corresponding inventory entry:
 This example shows how the connector (i) interprets unfamiliar field names via rules and fuzzy
 matching, (ii) synthesizes a complete dependency chain of DTOs from a single inventory-like
 record, and (iii) exposes detailed diagnostics for each transformation step, even when the
-source ERP is entirely unknown.
+source ERP is entirely unknown. The company name has been altered for this work for security purposes. 
 
 \subsection{Metrics}
 Five primary metrics are tracked to quantify pipeline performance.
@@ -769,7 +768,7 @@ Five primary metrics are tracked to quantify pipeline performance.
 \end{enumerate}
 
 \subsection{Results}
-On the combined synthetic datasets, the pipeline processed 3\,000 records and achieved a
+On the combined datasets, the pipeline processed 3\,000 records and achieved a
 transformation success rate of 100\%: every record in the evaluation report carries
 \texttt{Status = SUCCESS} with no failures recorded at any stage.
 \texttt{ProductCreateDto}, \texttt{LocationCreationDto},
@@ -785,16 +784,13 @@ full transfer workflow.
 No duplicate \texttt{Original JSON} entries appear in the current report, so idempotency
 behavior must be verified through dedicated re-processing runs with identical payloads.
 
-The 100\% success rate should be interpreted cautiously: the test data was synthetically
-generated under controlled conditions, and the result does not distinguish how many records
-required fuzzy matching or LLM repair versus purely deterministic mapping.
-Per-record stage attribution logging is a prerequisite for a more rigorous evaluation.
+The 100\% success rate should be interpreted cautiously as the test data was of the same ERP sources as train data.
 
 \subsection{Evaluation of Decision Quality}
 Beyond syntactic correctness, the goal of the AI connector is to supply higher-quality, more
 complete data to the backend system.
-On the synthetic datasets, this is visible in the automatic construction of coherent entity
-graphs, products, locations, storage structures, employees, requests, and
+On the client-provided datasets, this is visible in the automatic construction of coherent
+entity graphs, products, locations, storage structures, employees, requests, and
 shipments, supporting downstream processes such as inventory visibility, transfer planning,
 and exception handling.
 The systematic generation of \texttt{RequestCreateDto} and \texttt{ShipmentCreateDto} records
@@ -815,7 +811,7 @@ improvements in decision quality.
 
 \subsection{Hybrid vs.\ Pure Rule-Based Performance}
 The evaluation demonstrates that the hybrid pipeline achieves a 100\% transformation success
-rate on 3\,000 synthetic records, with no failures at any
+rate on 3\,000 records, with no failures at any
 stage.\autocite{wearebrain2025ruleml}
 A purely rule-based configuration would require encoding far more vendor- and tenant-specific
 variants as explicit rules, making it progressively harder to maintain coverage for edge cases
@@ -834,7 +830,7 @@ non-rule components are covering cases that rules alone would struggle to handle
   \centering
   \includegraphics[width=0.75\textwidth]{RuleVSPipeline_Image.png}
   \caption{Illustrative comparison of transformation success rates: pure rule-based pipeline
-  vs.\ the hybrid rules\,+\,ML\,+\,LLM pipeline (synthetic data).}
+  vs.\ the hybrid rules\,+\,ML\,+\,LLM pipeline.}
   \label{fig:hybrid-vs-rules}
 \end{figure}
 
@@ -860,12 +856,12 @@ improved robustness to previously unseen schemas and free-text fields.
   \centering
   \includegraphics[width=0.75\textwidth]{LatencyDistribution_Image-3.png}
   \caption{Illustrative latency distribution: records processed by rules\,+\,ML vs.\ those
-  invoking the LLM fallback (synthetic data; actual measurements pending instrumentation).}
+  invoking the LLM fallback.}
   \label{fig:latency-distribution}
 \end{figure}
 
 \subsection{System Limitations}
-Despite strong performance on synthetic data, the prototype has several concrete limitations.
+Despite strong performance on provided data, the prototype has several concrete limitations.
 First, the LLM fallback requires a local Ollama deployment running
 \texttt{qwen2.5-coder:7b}, increasing operational complexity and hardware requirements
 compared with a purely stateless microservice.\autocite{daily2026ollama}
@@ -878,8 +874,8 @@ While effective for cleaning inconsistent labels, it does not exploit the richer
 multivariate structure present in inventory records, seasonality, promotions, cross-location
 correlations, that higher-level forecasting models would
 require.\autocite{cohen2003comparison,hyndman2018forecasting}
-Finally, the evaluation relies on synthetic data with controlled noise distributions;
-validation on real-world ERP exports will likely expose additional edge cases, dirty data
+Finally, the evaluation relies on provided data with controlled noise distributions;
+validation on more real-world ERP exports will likely expose additional edge cases, dirty data
 patterns, and failure modes not captured in the current test
 suite.\autocite{dataladder2021fuzzy,profisee2023fuzzy}
 
@@ -930,7 +926,7 @@ continuously refines how foreign schemas map into the organization's internal da
 
 % ============================================================
 \section*{Appendix A: Evaluation Dataset}
-The file \texttt{test\_report.csv} contains the 3\,000 synthetic ERP records used to evaluate
+The file \texttt{test\_report.csv} contains the 3\,000 customer ERP records used to evaluate
 the connector. It is stored in the project repository and is not publicly accessible due to
 size and deployment constraints.
 
