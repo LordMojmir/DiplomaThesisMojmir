@@ -25,7 +25,7 @@ Enterprise Resource Planning systems suffer from heterogeneous data schemas acro
 
 \subsection{ERP Systems Overview}
 Enterprise Resource Planning (ERP) systems provide integrated support for core business functions such as finance, supply chain, manufacturing, and human resources, typically through a modular architecture connected to a central data model.\autocite{zhang2021aienterprise}
-Major vendors—including SAP S/4HANA, Odoo, Oracle NetSuite, Microsoft Dynamics 365, Epicor Kinetic, and Infor CloudSuite—offer overlapping functional coverage but expose distinct data schemas, APIs, and customization mechanisms, which complicates cross-system interoperability.\autocite{dataforest2026integration,nexla2024enterprise}
+Major vendors, including SAP S/4HANA, Odoo, Oracle NetSuite, Microsoft Dynamics 365, Epicor Kinetic, and Infor CloudSuite, offer overlapping functional coverage but expose distinct data schemas, APIs, and customization mechanisms, which complicates cross-system interoperability.\autocite{dataforest2026integration,nexla2024enterprise}
 
 \subsection{Data Integration Challenges}
 Integrating data across heterogeneous ERP ecosystems requires reconciling differences in schema design, naming conventions, and modeling choices.\autocite{doan2012principles}
@@ -45,14 +45,17 @@ In modern ERP systems, AI serves as a layer of abstraction that can reconcile st
 This research applies AI as an integrative mechanism to align inconsistent data structures between ERP systems, enabling rule-to-learning transitions when deterministic approaches fail.
 
 \subsection{Relevant Techniques for Data Harmonization}
-Enterprise data harmonization involves merging data with diverse formats, semantics, and schemas into a unified model \autocite{doan2012principles}. Multiple paradigms underpin this process:
-\begin{itemize}
-    \item \textbf{Rule engines}: Deterministic mapping systems encode transformation knowledge as static rules. They provide full interpretability but low adaptability to unseen input \autocite{forgy1982rete}.
-    \item \textbf{Fuzzy string matching}: Probabilistic matching algorithms, such as token-based similarity measures, handle near-duplicates, misspellings, and noisy input using distance metrics \autocite{cohen2003comparison}. These are lightweight yet effective for aligning ERP field labels and categorical values.
-    \item \textbf{Large Language Models (LLMs)}: Recently, transformer-based LLMs have been shown to perform flexible data extraction, normalization, and labeling from semi-structured or even free-text input \autocite{brown2020language, zhao2023survey}. Within ERP data pipelines, LLMs offer redundancy for failed deterministic or statistical mappings by leveraging contextual understanding.
-\end{itemize}
-The hybrid pipeline implemented in this prototype therefore mirrors an evolution from symbolic AI (deterministic rules) toward connectionist systems (ML and neural models), bridging interpretability and robustness.
+Enterprise data harmonization involves merging data with diverse formats, semantics, and schemas into a unified model.\autocite{doan2012principles} At a high level, harmonization can be viewed as learning or encoding a mapping function \(f : \mathcal{X} \rightarrow \mathcal{Y}\) from heterogeneous source representations \(\mathcal{X}\) (e.g., vendor-specific ERP exports) to a recognized target schema \(\mathcal{Y}\), subject to constraints such as referential integrity and type correctness. Multiple paradigms underpin this process:
 
+\begin{itemize}
+    \item \textbf{Rule engines}: Deterministic mapping systems encode transformation knowledge as static rules, typically of the form ``IF condition THEN action'' over input records.\autocite{forgy1982rete,giarratano2005expert} In the ERP harmonization setting, a rule might map a vendor key \texttt{"MaterialNumber"} to the recognized \texttt{"sku"} field if it appears in a product context and satisfies simple type checks. Because all logic is explicitly specified, rule engines provide full interpretability and reproducibility: given identical input, the mapping function \(f\) always produces the same output. However, this also implies a ``knowledge acquisition bottleneck'', each new schema variant requires manual authoring and maintenance of additional rules, and the rule base can grow combinatorially with the number of vendors and edge cases.
+    
+    \item \textbf{Fuzzy string matching}: Probabilistic matching algorithms, such as token-based similarity measures, handle near-duplicates, misspellings, and noisy input using distance metrics.\autocite{cohen2003comparison} Formally, they define a similarity function \(s: \Sigma^\ast \times \Sigma^\ast \rightarrow [0,1]\) over strings, where values close to 1 indicate strong correspondence (for example, a high token sort ratio between ``Warehouse A - North'' and ``North Warehouse A''). In this prototype, a library such as RapidFuzz computes token-based scores and selects the best recognized label for a given observed value when \(s\) exceeds a threshold.\autocite{rapidfuzz2020github,cran2024rapidfuzz} These methods are lightweight yet effective for aligning ERP field labels and categorical values (units of measure, location names, country codes) without enumerating every spelling or formatting variant in the rule base.
+    
+    \item \textbf{Large Language Models (LLMs)}: Recently, transformer-based LLMs have been shown to perform flexible data extraction, normalization, and labeling from semi-structured or even free-text input.\autocite{brown2020language,zhao2023survey} Conceptually, an LLM implements a conditional sequence-to-sequence model \(g_\theta(x) \approx y\), where \(x\) is raw or loosely structured text and \(y\) is a structured representation such as JSON that conforms to a target schema. Within ERP data pipelines, LLMs offer redundancy for failed deterministic or statistical mappings by leveraging contextual understanding: for example, inferring that a field labeled ``WH'' in the vicinity of inventory quantities likely denotes a warehouse code. At the same time, LLMs can hallucinate fields or over-generalize patterns, so in this connector they are positioned as a controlled fallback layer rather than the primary mechanism for schema alignment.
+\end{itemize}
+
+The hybrid pipeline implemented in this prototype therefore mirrors an evolution from symbolic AI (deterministic rules) toward connectionist systems (ML and neural models), with each paradigm addressing a different part of the harmonization problem.\autocite{goodfellow2016deep,gunning2017explainable} Rule engines capture stable, high-confidence mappings that must remain transparent to integrators, fuzzy matching absorbs the long tail of noisy but structurally simple variations, and LLMs provide a flexible but carefully sandboxed mechanism to recover from residual ambiguities that escape both deterministic and classical statistical techniques.
 \subsection{Rule-Based Systems vs. Machine Learning}
 Rule-based systems operate through explicitly codified logic, ensuring reproducibility and interpretability \autocite{giarratano2005expert}. However, as the diversity of data sources grows, purely rule-based architectures exhibit exponential growth in maintenance overhead. They fail to generalize to unseen schemas or contextual variations.
 Machine learning (ML), by contrast, infers transformation patterns from examples rather than from hand-written logic \autocite{goodfellow2016deep}. In ERP data integration, ML enables schema alignment and entity-linking even when semantic or lexical mismatches occur. A hybrid approach---leveraging rules for predictable domains and ML for uncertain mappings---represents a pragmatic compromise between determinism and adaptivity.
@@ -119,14 +122,14 @@ The layered decomposition mirrors modern data pipeline architectures used in lar
 
 \subsection{Layer 1: Data Normalization Layer (Adapter)}
 The first layer isolates presentation concerns by translating heterogeneous payload formats into a common in-memory representation. The \texttt{AdapterFactory} inspects the HTTP \texttt{Content-Type} header and, where necessary, filename extensions to dispatch to one of four adapters: \texttt{JsonAdapter}, \texttt{JsonLinesAdapter}, \texttt{CsvAdapter}, or \texttt{FreeTextAdapter}.\autocite{skyvia2026patterns}
-Each adapter is responsible for parsing the raw body, handling character encodings, and producing a list of canonical Python dictionaries that the downstream layers can consume uniformly.
+Each adapter is responsible for parsing the raw body, handling character encodings, and producing a list of recognized Python dictionaries that the downstream layers can consume uniformly.
 
-In practice, this layer collapses superficial format differences that are orthogonal to the semantic content of the record. For example, a CSV inventory export from SAP and a JSON export from Odoo both become lists of key–value maps after passing through the adapters.
+In practice, this layer collapses superficial format differences that are unrelated to the semantic content of the record. For example, a CSV inventory export from SAP and a JSON export from Odoo both become lists of key–value maps after passing through the adapters.
 For free-text payloads, the adapter emits a pseudo-record with a single \texttt{raw\_text} field, which is then primarily handled by the LLM fallback in later stages.
 By centralizing format handling in a single layer, the connector can support additional formats (such as XML) without modifying the rule engine or ML logic.
 
 \subsection{Layer 2: Rule Engine}
-The second layer performs deterministic schema alignment using vendor-specific mapping dictionaries. For each of the six supported ERP systems (Odoo, SAP S/4HANA, Epicor Kinetic, Oracle NetSuite, Microsoft Dynamics 365, Infor CloudSuite), the rule engine maintains a mapping from known source keys and patterns to the internal canonical field names, plus a generic fallback profile for unknown vendors.
+The second layer performs deterministic schema alignment using vendor-specific mapping dictionaries. For each of the six supported ERP systems (Odoo, SAP S/4HANA, Epicor Kinetic, Oracle NetSuite, Microsoft Dynamics 365, Infor CloudSuite), the rule engine maintains a mapping from known source keys and patterns to the internal recognized field names, plus a generic fallback profile for unknown vendors.
 The transformation proceeds through a fixed ten-step pipeline: envelope extraction $\rightarrow$ flattening $\rightarrow$ key mapping $\rightarrow$ date normalization $\rightarrow$ compound field splitting $\rightarrow$ storage name synthesis $\rightarrow$ type coercion $\rightarrow$ context-aware re-mapping $\rightarrow$ address flattening $\rightarrow$ volume derivation.
 
 Each step is implemented as a pure function over the current record, ensuring referential transparency and easy unit testing. Envelope extraction removes vendor-specific wrappers (for instance, nested \texttt{results} or \texttt{data} keys), while flattening converts nested objects into a single-level key space using dot or underscore notation.\autocite{doan2012principles}
@@ -135,7 +138,7 @@ Because the rule engine is entirely deterministic, it can provide stable behavio
 
 \subsection{Layer 3: ML Engine}
 The ML engine complements the rule layer by resolving ambiguities that cannot be handled via simple dictionary lookup or pattern matching. In the current implementation, it focuses on fuzzy value normalization using the \texttt{RapidFuzz} library, which provides efficient token-based similarity measures such as \texttt{token\_sort\_ratio}.\autocite{rapidfuzz2020github,cran2024rapidfuzz}
-For selected categorical fields (usage types, units of measure, country and currency codes), the engine compares the observed value against a curated list of canonical options and selects the best match if the similarity score exceeds a threshold (80 in this prototype).
+For selected categorical fields (usage types, units of measure, country and currency codes), the engine compares the observed value against a curated list of recognized options and selects the best match if the similarity score exceeds a threshold (80 in this prototype).
 
 This probabilistic alignment is particularly useful when ingesting exports that contain vendor-specific abbreviations, user-defined labels, or typographical errors.
 Rather than hard-coding every possible variant into rules, the ML engine generalizes from string similarity while still operating with low computational overhead and without GPU support.
@@ -185,7 +188,7 @@ Overall, the backend integration layer closes the loop between the AI-enhanced c
 The connector deliberately starts from a type-agnostic view of incoming ERP payloads: adapters and the rule engine first attempt to infer semantics from record structure and field names without relying on a hard-coded vendor identifier.\autocite{doan2012principles,substack2025schemamatching}
 This strategy works well when vendors reuse broadly understandable business terms (for example, \texttt{sku}, \texttt{quantity}, \texttt{warehouse}, \texttt{uom}) and follow consistent nesting patterns that can be flattened deterministically.
 
-Empirically, the agnostic approach succeeds on the majority of synthetic records where schemas are either close to the canonical model or differ only in superficial conventions such as case, delimiter, or ordering.\autocite{skyvia2026patterns}
+Empirically, the agnostic approach succeeds on the majority of synthetic records where schemas are either close to the recognized model or differ only in superficial conventions such as case, delimiter, or ordering.\autocite{skyvia2026patterns}
 In such cases, type-agnostic parsing avoids the need to maintain separate ingest code paths for each vendor, reducing configuration effort and simplifying onboarding of new ERP systems that broadly adhere to common enterprise data modeling practices.\autocite{nexla2024enterprise}
 
 However, purely agnostic parsing breaks down when vendors introduce deeply nested, domain-specific structures or overload the same field name with different semantics across modules (for instance, \texttt{status} representing a workflow state in one export and a logistics exception code in another).\autocite{doan2012principles}
@@ -206,7 +209,7 @@ Fuzzy matching is introduced in the ML engine to address the long tail of incons
 Typical examples include spelling variations (``warehous''), abbreviations (``WH'' vs. ``Warehouse''), and heterogeneous unit labels (``kg'', ``KG'', ``kilogram'').\autocite{cohen2003comparison,aerospike2026fuzzy}
 Without fuzzy matching, each of these variants would require explicit rule entries or would be rejected during validation, leading either to brittle rule sets or higher failure rates.
 
-By applying token-based similarity measures and thresholding against a curated reference vocabulary, the connector can automatically normalize many of these variants to canonical forms, which improves downstream DTO validation and reduces the need for manual data cleaning.\autocite{rapidfuzz2020github,profisee2023fuzzy}
+By applying token-based similarity measures and thresholding against a curated reference vocabulary, the connector can automatically normalize many of these variants to recognized forms, which improves downstream DTO validation and reduces the need for manual data cleaning.\autocite{rapidfuzz2020github,profisee2023fuzzy}
 Industry case studies report that adding fuzzy matching to master data workflows can increase match rates by 20–25\% while simultaneously reducing manual review effort.\autocite{dataladder2021fuzzy}
 In the context of this prototype, the same principle manifests as an increased transformation success rate on synthetic datasets, particularly for vendor exports that contain user-entered labels or legacy codes.
 
@@ -271,7 +274,7 @@ Approximately 61.0\% of records contain an \texttt{InventoryCreationDto}, while 
 No duplicate \texttt{Original JSON} entries are observed in the report, implying that all records in this run are unique and that idempotency behavior must be evaluated using repeated runs with identical source payloads rather than within a single file snapshot.[file:49]
 
 Given that every record finished with \texttt{Status = SUCCESS} and that the report does not currently distinguish which records required LLM intervention, the effective LLM invocation rate cannot yet be computed from \texttt{test\_report.csv} alone.[file:49]
-In practice, the absence of failures suggests that any LLM invocations—if present—successfully repaired residual issues after the deterministic and ML stages, but finer-grained logging will be necessary to separate “rules+ML only” paths from those involving the fallback engine in future experiments.[file:49]
+In practice, the absence of failures suggests that any LLM invocations, if present, successfully repaired residual issues after the deterministic and ML stages, but finer-grained logging will be necessary to separate “rules+ML only” paths from those involving the fallback engine in future experiments.[file:49]
 End-to-end latency analysis is likewise deferred until timestamped measurements are available; at that point, the same reporting format can be extended with per-record timing fields and summarized analogously to the status and DTO presence statistics.[file:49]
 
 \begin{figure}[H]
@@ -283,11 +286,11 @@ End-to-end latency analysis is likewise deferred until timestamped measurements 
 
 \subsection{Evaluation of Decision Quality}
 Beyond syntactic correctness, the goal of the AI connector is to improve ERP decision-making by providing higher-quality, more complete data to the backend system.
-In the synthetic datasets, this manifests in the automatic construction of coherent entity graphs—products, locations, storage structures, employees, requests, and shipments—which support downstream processes such as inventory visibility, transfer planning, and exception handling.[file:49]
+In the synthetic datasets, this manifests in the automatic construction of coherent entity graphs, products, locations, storage structures, employees, requests, and shipments, which support downstream processes such as inventory visibility, transfer planning, and exception handling.[file:49]
 For example, the systematic generation of \texttt{RequestCreateDto} and \texttt{ShipmentCreateDto} records for transfer inputs ensures that the ERP can reason about both the demand side (requests) and the logistics side (shipments) without manual data entry.[file:49]
 
 While the current \texttt{test\_report.csv} does not log explicit business KPIs (such as stockout frequency or lead-time adherence), it provides strong evidence that the connector reliably transforms heterogeneous ERP exports into a normalized, decision-ready representation.[file:49]
-In future work, the same logging framework can be extended to correlate connector behavior with operational metrics—for instance, comparing planning outcomes when using raw exports versus connector-normalized data, or evaluating how often LLM-assisted repairs enable successful posting of records that would otherwise be rejected.[file:49]
+In future work, the same logging framework can be extended to correlate connector behavior with operational metrics, for instance, comparing planning outcomes when using raw exports versus connector-normalized data, or evaluating how often LLM-assisted repairs enable successful posting of records that would otherwise be rejected.[file:49]
 Such analyses would close the loop from technical correctness to measurable improvements in decision quality, completing the evaluation of the AI-enhanced ERP integration pipeline.[file:49]
 
 \section{Discussion}
@@ -310,7 +313,7 @@ Although \texttt{test\_report.csv} does not yet distinguish which records relied
 \subsection{Latency and Adaptability Trade-offs}
 Introducing fuzzy matching and an LLM fallback inevitably affects latency.
 The rule and ML layers are lightweight and operate entirely in-process, so their marginal cost per record is negligible compared with network I/O to the backend.\autocite{rapidfuzz2020github,pydantic2019why}
-By contrast, LLM calls—even to a locally hosted model—incur substantially higher per-record latency, often on the order of several seconds, and must be rate-limited to avoid resource contention.\autocite{daily2026ollama,aimultiple2026cloudllm}
+By contrast, LLM calls, even to a locally hosted model, incur substantially higher per-record latency, often on the order of several seconds, and must be rate-limited to avoid resource contention.\autocite{daily2026ollama,aimultiple2026cloudllm}
 
 The present evaluation run does not yet include explicit latency measurements in \texttt{test\_report.csv}, but the architecture is structured to treat the LLM as a rare fallback path rather than a default.
 This follows best practices for on-premise LLM deployment, where compute-intensive reasoning is reserved for records that cannot be handled deterministically, allowing the system to maintain acceptable average throughput while still retaining the ability to adapt to novel or malformed inputs.\autocite{unifiedai2025onprem,montecarlo2025pipeline}
@@ -329,12 +332,12 @@ First, the LLM fallback assumes the presence of a local Ollama deployment runnin
 Organizations without existing GPU or high-core CPU infrastructure may find it difficult to provision the necessary resources, particularly if they expect sustained high-volume traffic.
 
 Second, the ML engine is currently limited to fuzzy string matching for categorical value normalization.
-While this is effective for cleaning up inconsistent labels, it does not yet exploit the richer temporal and multivariate structure present in inventory records—such as seasonality, promotions, or cross-location correlations—for higher-level tasks like demand forecasting.\autocite{cohen2003comparison,hyndman2018forecasting}
+While this is effective for cleaning up inconsistent labels, it does not yet exploit the richer temporal and multivariate structure present in inventory records, such as seasonality, promotions, or cross-location correlations, for higher-level tasks like demand forecasting.\autocite{cohen2003comparison,hyndman2018forecasting}
 Moreover, the evaluation to date uses synthetic data with controlled noise distributions; validation on real-world ERP exports will likely expose additional edge cases, dirty data patterns, and failure modes that are not captured in the current test suite.\autocite{dataladder2021fuzzy,profisee2023fuzzy}
 
 \subsection{Future Work}
 A natural extension of the current architecture is to integrate a PyTorch-based LSTM or Transformer model into the ML engine for demand forecasting on inventory records.
-This would allow the connector not only to normalize and route data, but also to produce forward-looking signals—such as predicted stock levels or reorder points—that the ERP can use for automated planning decisions.\autocite{bandara2020lstm,goodfellow2016deep}
+This would allow the connector not only to normalize and route data, but also to produce forward-looking signals, such as predicted stock levels or reorder points that the ERP can use for automated planning decisions.\autocite{bandara2020lstm,goodfellow2016deep}
 From an architectural standpoint, the forecasting model can be exposed through the same \texttt{MLEngine} interface, enabling the pipeline to enrich validated DTOs with forecast fields without breaking the existing contract with the backend.
 
 Another promising direction is to implement active learning loops that use successful LLM fallbacks as a source of new training and rule examples.
@@ -351,7 +354,7 @@ Over time, this would reduce LLM invocation rates, improve latency, and make the
 \section{Conclusion}
 
 The results of this work show that using AI for parsing foreign ERP exports into a unified DTO schema is not only feasible but also strategically justified.
-Hand-crafted, vendor-specific parsers quickly become brittle as schemas evolve, tenants customize fields, and new systems are added; in contrast, a layered AI pipeline can absorb much of this variability without requiring exhaustive rule maintenance.
+Hand-crafted, vendor-specific parsers quickly become brittle as schemas evolve, customize fields, and new systems are added; in contrast, a layered AI pipeline can absorb much of this variability without requiring exhaustive rule maintenance.
 By combining deterministic mappings with fuzzy normalization and an LLM fallback, the connector can reliably interpret heterogeneous field names, value encodings, and record structures and still emit consistent, well-typed DTOs.
 
 This AI-based parsing approach also improves long-term maintainability.
