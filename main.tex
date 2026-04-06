@@ -15,14 +15,13 @@
 \newpage
 
 \section{Abstract}
-
 \subsection{Deutsch}
-Enterprise-Resource-Planning-(ERP)-Systeme leiden in der Praxis unter stark heterogenen Datenschemata zwischen verschiedenen Anbietern (SAP S/4HANA, Odoo, Oracle NetSuite, Microsoft Dynamics 365, Epicor, Infor).
-Dadurch werden Integrationsprojekte fragil, teuer und schwer wartbar, insbesondere wenn mehrere Systeme parallel betrieben oder sukzessive migriert werden.
-In dieser Arbeit präsentiere ich einen prototypischen AI-Connector-Dienst, der die Aufnahme, Normalisierung und Entscheidungsweiterleitung von ERP-Daten automatisiert.
-Kern der Lösung ist eine dreistufige, hybride Pipeline aus deterministischer, regelbasierter Feldabbildung, maschinellem Lernen für unscharfe Wertanpassung und einem lokalen Large-Language-Model-(LLM)-Fallback.
-Der Dienst wurde in Python auf Basis von FastAPI, Pydantic, RapidFuzz und scikit-learn implementiert, nutzt ein lokal gehostetes LLM (Ollama/Qwen2.5-Coder) und ist mit einem Spring-Boot-ERP-Backend integriert.
-Die Auswertung auf synthetischen ERP-Datensätzen zeigt, dass der hybride Ansatz sowohl die Genauigkeit als auch die Anpassungsfähigkeit im Vergleich zu rein regelbasierten Verfahren deutlich verbessert und gleichzeitig eine robuste Grundlage für zukünftige Erweiterungen wie Nachfrageprognosen und Anomalieerkennung bietet.
+In der Praxis weisen ERP-Systeme (Enterprise Resource Planning) stark heterogene Datenschemata zwischen verschiedenen Anbietern (SAP S/4HANA, Odoo, Oracle NetSuite, Microsoft Dynamics 365, Epicor, Infor) auf. Dies macht die systemübergreifende Integration fehleranfällig, teuer und langfristig schwer wartbar.
+Diese Arbeit präsentiert den Prototyp eines KI-gestützten Konnektor-Dienstes, der die Datenaufnahme, Normalisierung und das Routing von ERP-Daten automatisiert. 
+Dabei kommt eine dreistufige, hybride Pipeline zum Einsatz: deterministisches, regelbasiertes Mapping, auf maschinellem Lernen basierendes Fuzzy-Matching von Werten sowie ein lokales Large Language Model (LLM) als Fallback-Ebene.
+Der Konnektor wurde in Python (FastAPI, Pydantic, RapidFuzz, scikit-learn) implementiert, nutzt ein lokal gehostetes LLM (Ollama/Qwen2.5-Coder) und ist an ein auf Spring Boot basierendes ERP-Backend angebunden.
+Die Auswertung anhand synthetischer ERP-Datensätze, die Schemata mehrerer namhafter Anbieter umfassen, zeigt, dass die hybride Pipeline im Vergleich zu rein regelbasierten Ansätzen hohe Erfolgsraten bei der Datentransformation erzielt und sich besser an unregelmäßige oder bisher unbekannte Schemata anpasst.
+Die Ergebnisse verdeutlichen, dass das KI-gestützte Parsen fremder ERP-Exporte in ein einheitliches DTO-Schema den Integrationsaufwand erheblich reduzieren kann, während gleichzeitig die Erweiterbarkeit für zukünftige Funktionen wie Nachfrageprognosen und Anomalieerkennung erhalten bleibt.
 
 \subsection{English}
 Enterprise Resource Planning (ERP) systems in real-world deployments suffer from heterogeneous data schemas across vendors (SAP S/4HANA, Odoo, Oracle NetSuite, Microsoft Dynamics 365, Epicor, Infor), which makes cross-system integration brittle, expensive, and difficult to maintain over time.
