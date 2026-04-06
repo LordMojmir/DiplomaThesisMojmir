@@ -208,15 +208,6 @@ However, purely agnostic parsing breaks down when vendors introduce deeply neste
 In these situations, vendor-specific rule dictionaries and context-aware remapping become necessary to disambiguate meaning and route fields to the correct internal DTO attributes.
 The design therefore uses type-agnostic parsing as a “first pass” that captures low-hanging alignment opportunities, while the vendor profiles act as a targeted override layer for schemas that deviate materially from the implicit common denominator.\autocite{tacnode2026patterns}
 
-% \begin{figure}[H]
-%   \centering
-%   \includegraphics[width=0.75\textwidth]{TypeAgnostisVSVendorSpecific.png}
-%   \caption{Comparison of successful transformations for type-agnostic parsing alone vs. parsing with vendor-specific rules enabled.}
-%   \label{fig:type-agnostic-coverage}
-% \end{figure}
-
-You would map the bars to your actual evaluation metrics, for example “records mapped correctly without vendor profile” vs. “records mapped correctly with vendor profile”.
-
 \subsection{Impact of Fuzzy Matching on Accuracy}
 Fuzzy matching is introduced in the ML engine to address the long tail of inconsistent categorical values that deterministic rules alone cannot reliably handle.
 Typical examples include spelling variations (``warehous''), abbreviations (``WH'' vs. ``Warehouse''), and heterogeneous unit labels (``kg'', ``KG'', ``kilogram'').\autocite{cohen2003comparison,aerospike2026fuzzy}
@@ -448,6 +439,13 @@ Within this population, \texttt{ProductCreateDto}, \texttt{LocationCreationDto},
 More specialized DTOs appear at rates that reflect the underlying mix of record types.
 Approximately 61.0\% of records contain an \texttt{InventoryCreationDto}, while about 39.0\% contain \texttt{RequestCreateDto}, \texttt{ShipmentCreateDto}, and \texttt{EmployeeCreateDto}, indicating that a substantial fraction of the dataset exercises the full transfer workflow including request and shipment generation.
 No duplicate \texttt{Original JSON} entries are observed in the current evaluation report, implying that all records in this run are unique and that idempotency behavior must be evaluated using repeated runs with identical source payloads rather than within a single file snapshot.
+
+% \begin{figure}[H]
+%   \centering
+%   \includegraphics[width=0.9\textwidth]{dto_distribution.png}
+%   \caption{Distribution of DTO types across all processed records, illustrating the coverage of the dependency synthesis layer.}
+%   \label{fig:dto-distribution}
+% \end{figure}
 
 \subsection{Evaluation of Decision Quality}
 Beyond syntactic correctness, the goal of the AI connector is to improve ERP decision-making by providing higher-quality, more complete data to the backend system.
