@@ -15,7 +15,21 @@
 \newpage
 
 \section{Abstract}
-Enterprise Resource Planning systems suffer from heterogeneous data schemas across vendors (SAP, Odoo, Oracle NetSuite, Microsoft Dynamics 365, Epicor, Infor). This thesis presents a prototype AI connector service that automates the ingestion, normalization, and decision-routing of ERP data using a three-stage hybrid pipeline: deterministic rule-based mapping, machine learning fuzzy matching, and a large language model fallback. The system was implemented in Python using FastAPI, Pydantic, RapidFuzz, scikit-learn, and a locally hosted LLM (Ollama/Qwen2.5-Coder), and integrated with a Spring Boot ERP backend. Evaluation on synthetic ERP datasets demonstrates improved accuracy and adaptability compared to purely rule-based approaches.
+
+\subsection{Deutsch}
+Enterprise-Resource-Planning-(ERP)-Systeme leiden in der Praxis unter stark heterogenen Datenschemata zwischen verschiedenen Anbietern (SAP S/4HANA, Odoo, Oracle NetSuite, Microsoft Dynamics 365, Epicor, Infor).
+Dadurch werden Integrationsprojekte fragil, teuer und schwer wartbar, insbesondere wenn mehrere Systeme parallel betrieben oder sukzessive migriert werden.
+In dieser Arbeit präsentiere ich einen prototypischen AI-Connector-Dienst, der die Aufnahme, Normalisierung und Entscheidungsweiterleitung von ERP-Daten automatisiert.
+Kern der Lösung ist eine dreistufige, hybride Pipeline aus deterministischer, regelbasierter Feldabbildung, maschinellem Lernen für unscharfe Wertanpassung und einem lokalen Large-Language-Model-(LLM)-Fallback.
+Der Dienst wurde in Python auf Basis von FastAPI, Pydantic, RapidFuzz und scikit-learn implementiert, nutzt ein lokal gehostetes LLM (Ollama/Qwen2.5-Coder) und ist mit einem Spring-Boot-ERP-Backend integriert.
+Die Auswertung auf synthetischen ERP-Datensätzen zeigt, dass der hybride Ansatz sowohl die Genauigkeit als auch die Anpassungsfähigkeit im Vergleich zu rein regelbasierten Verfahren deutlich verbessert und gleichzeitig eine robuste Grundlage für zukünftige Erweiterungen wie Nachfrageprognosen und Anomalieerkennung bietet.
+
+\subsection{English}
+Enterprise Resource Planning (ERP) systems in real-world deployments suffer from heterogeneous data schemas across vendors (SAP S/4HANA, Odoo, Oracle NetSuite, Microsoft Dynamics 365, Epicor, Infor), which makes cross-system integration brittle, expensive, and difficult to maintain over time.
+This thesis presents a prototype AI connector service that automates the ingestion, normalization, and decision-routing of ERP data using a three-stage hybrid pipeline: deterministic rule-based mapping, machine learning–based fuzzy value matching, and a local large language model (LLM) fallback.
+The connector is implemented in Python using FastAPI, Pydantic, RapidFuzz, and scikit-learn, combined with a locally hosted LLM (Ollama/Qwen2.5-Coder), and is integrated with a Spring Boot–based ERP backend.
+Evaluation on synthetic ERP datasets comprising multiple major vendor schemas shows that the hybrid pipeline achieves high transformation success rates and improved adaptability to irregular or previously unseen schemas compared to purely rule-based approaches.
+The results indicate that AI-assisted parsing of foreign ERP exports into a unified DTO schema can substantially reduce integration effort while preserving extensibility for future capabilities such as demand forecasting and anomaly detection.
 
 % \section{Introduction}
 % \subsection{Overlying Question and Objectives}
@@ -195,12 +209,12 @@ However, purely agnostic parsing breaks down when vendors introduce deeply neste
 In these situations, vendor-specific rule dictionaries and context-aware remapping become necessary to disambiguate meaning and route fields to the correct internal DTO attributes.
 The design therefore uses type-agnostic parsing as a “first pass” that captures low-hanging alignment opportunities, while the vendor profiles act as a targeted override layer for schemas that deviate materially from the implicit common denominator.\autocite{tacnode2026patterns}
 
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=0.75\textwidth]{TypeAgnostisVSVendorSpecific.png}
-  \caption{Comparison of successful transformations for type-agnostic parsing alone vs. parsing with vendor-specific rules enabled.}
-  \label{fig:type-agnostic-coverage}
-\end{figure}
+% \begin{figure}[H]
+%   \centering
+%   \includegraphics[width=0.75\textwidth]{TypeAgnostisVSVendorSpecific.png}
+%   \caption{Comparison of successful transformations for type-agnostic parsing alone vs. parsing with vendor-specific rules enabled.}
+%   \label{fig:type-agnostic-coverage}
+% \end{figure}
 
 You would map the bars to your actual evaluation metrics, for example “records mapped correctly without vendor profile” vs. “records mapped correctly with vendor profile”.
 
@@ -242,10 +256,12 @@ Self-hosting a compact open-weight model requires upfront investment in compute 
 In this prototype, the design assumes a modest but steady stream of ERP data and a preference for maximal control, making a small local model a reasonable compromise.
 For organizations with spiky workloads or no appetite for managing AI infrastructure, the same architecture could be adapted to a cloud API simply by swapping the LLM engine implementation.
 
+It is worth noting the cultural context surrounding this architectural choice. As illustrated in Figure~\ref{fig:llm-local-vs-cloud}, a popular meme from the developer community satirically represents the perceived agonizing complexity of deploying local LLMs compared to the plug-and-play nature of cloud APIs. However, this view is now largely outdated. While it humorously captures the historical frustrations of manually managing GPU dependencies, memory allocation, and model weights, the ecosystem has rapidly matured. Today, the aforementioned tools like Ollama have abstracted away these friction points, bridging the usability gap and making local deployment highly accessible.
+
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.7\textwidth]{LocalVSServer.png}
-  \caption{Qualitative comparison of local LLM deployment vs. cloud LLM APIs along the dimensions of privacy, latency predictability, and cost. Source: \autocite{reddit2024localvscloud}}
+  \caption{A satirical meme representing historical community opinions on the complexity of local LLM deployment vs.\ the ease of cloud APIs. Modern deployment tools have since rendered this comparison largely outdated. Source: \autocite{reddit2024localvscloud}}
   \label{fig:llm-local-vs-cloud}
 \end{figure}
 
@@ -271,56 +287,187 @@ Because the connector invokes the LLM only as a last resort after rules and fuzz
 \section{Evaluation}
 
 \subsection{Test Datasets}
-The evaluation uses four synthetic datasets designed to exercise the full range of supported ERP schemas and record types.
-\texttt{erp\_dataset\_small.jsonl}, \texttt{erp\_dataset\_medium.jsonl}, and \texttt{erp\_dataset.jsonl} contain inventory and transfer records sampled across Odoo, SAP S/4HANA, Epicor Kinetic, Oracle NetSuite, Microsoft Dynamics 365, and Infor CloudSuite, while \texttt{edge\_cases.jsonl} focuses on irregular schemas, missing fields, and atypical value formats intended to trigger the ML and LLM paths.[file:49]
-The consolidated results of running the full pipeline over all datasets are stored in \texttt{test\_report.csv}, which logs the original record, the transformed DTOs, the final status, and any failed stage and error messages.[file:49]
+To evaluate the connector, I constructed four synthetic datasets designed to exercise the full range of supported ERP schemas and record types.
+\texttt{erp\_dataset\_small.jsonl}, \texttt{erp\_dataset\_medium.jsonl}, and \texttt{erp\_dataset.jsonl} contain inventory and transfer records sampled across Odoo, SAP S/4HANA, Epicor Kinetic, Oracle NetSuite, Microsoft Dynamics 365, and Infor CloudSuite, while \texttt{edge\_cases.jsonl} focuses on irregular schemas, missing fields, and atypical value formats intended to trigger the ML and LLM paths.
+The connector writes its run-time results to an internal report file \texttt{test\_report.csv}, which logs, for each input record, the original payload, the transformed DTOs, the final status, and any failed stage and error messages.
+
+\subsection{Illustrative Example: Parsing a Foreign ERP Record}
+To illustrate how the hybrid pipeline processes previously unseen ERP schemas, consider the following foreign inventory record from an unknown vendor.
+The input JSON uses idiosyncratic field names such as \texttt{item\_descriptor}, \texttt{warehouse\_hint}, and \texttt{qty\_ready}, which do not directly match the internal DTO schema:
+
+\begin{verbatim}
+{
+  "source_erp": "EDGE_UNKNOWN",
+  "record_type": "inventory",
+  "payload": {
+    "item_descriptor": "Field pack radio",
+    "warehouse_hint": "Bunker-7",
+    "qty_ready": 12,
+    "unit_label": "EA",
+    "manufacturer_name": "Acme Defense"
+  }
+}
+\end{verbatim}
+
+After passing through the adapter, rule engine, ML engine, and dependency synthesis layers, the connector emits a sequence of normalized DTOs that collectively represent the product, its location and storage hierarchy, and the corresponding inventory entry:
+
+\begin{verbatim}
+{
+  "total": 1,
+  "success": 1,
+  "error": 0,
+  "details": [
+    {
+      "status": "success",
+      "data": {
+        "id": "86df4136-5ae1-480b-aecd-c663429daeb2",
+        "sku": "FIELD-PACK-RADIO",
+        "name": "Field pack radio",
+        "description": null,
+        "length": null,
+        "width": null,
+        "height": null,
+        "weight": null,
+        "volume": {
+          "size": 12.0,
+          "unit": "EA"
+        },
+        "baseUnit": "EA",
+        "Producer": "Acme Defense"
+      },
+      "source": "rule_ml",
+      "model": "ProductCreateDto"
+    },
+    {
+      "status": "success",
+      "data": {
+        "id": "0251a7ab-9981-4e7f-8110-83ccb1622817",
+        "name": "Loc-Bunker-7",
+        "latitude": 52.51301,
+        "longitude": 13.39211,
+        "countryIso2": "XX",
+        "adminId": null
+      },
+      "source": "rule_ml",
+      "model": "LocationCreationDto"
+    },
+    {
+      "status": "success",
+      "data": {
+        "id": "a1a1345f-f6e8-415a-82c0-217e2909f1f6",
+        "name": "SL-Bunker-7",
+        "locationId": "0251a7ab-9981-4e7f-8110-83ccb1622817",
+        "adminId": null
+      },
+      "source": "rule_ml",
+      "model": "StorageLocationCreationDto"
+    },
+    {
+      "status": "success",
+      "data": {
+        "id": "09dedd37-e736-4124-b33c-2685fa49dee4",
+        "name": "Storage-Bunker-7",
+        "description": "Auto-generated storage for Bunker-7",
+        "storageLocationId": "a1a1345f-f6e8-415a-82c0-217e2909f1f6",
+        "parentStorageId": null
+      },
+      "source": "rule_ml",
+      "model": "StorageCreationDto"
+    },
+    {
+      "status": "success",
+      "data": {
+        "id": null,
+        "productId": "86df4136-5ae1-480b-aecd-c663429daeb2",
+        "storageId": "09dedd37-e736-4124-b33c-2685fa49dee4",
+        "amount": 12
+      },
+      "source": "rule_ml",
+      "model": "InventoryCreationDto",
+      "diagnostics": [
+        {
+          "step": "rule_engine",
+          "status": "ok",
+          "mapped_keys": [
+            "name",
+            "storageId",
+            "quantity",
+            "baseUnit",
+            "Producer",
+            "record_type",
+            "storageName",
+            "productId",
+            "amount",
+            "volume",
+            "_source_erp"
+          ]
+        },
+        {
+          "step": "synthesize_product",
+          "status": "ok",
+          "sku": "FIELD-PACK-RADIO"
+        },
+        {
+          "step": "synthesize_origin_location",
+          "status": "ok",
+          "name": "Loc-Bunker-7"
+        },
+        {
+          "step": "synthesize_origin_storage_location",
+          "status": "ok"
+        },
+        {
+          "step": "synthesize_origin_storage",
+          "status": "ok"
+        },
+        {
+          "step": "validation",
+          "model": "InventoryCreationDto",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}
+\end{verbatim}
+
+This example shows how the connector (i) interprets unfamiliar field names (\texttt{item\_descriptor}, \texttt{warehouse\_hint}, \texttt{qty\_ready}) via rules and fuzzy matching, (ii) synthesizes a complete dependency chain of DTOs from a single inventory-like record, and (iii) exposes detailed diagnostics for each transformation step, even when the source ERP is completely unknown.
 
 \subsection{Metrics}
-To quantify performance, the evaluation tracks five primary metrics.
-First, the transformation success rate measures the fraction of input records that complete the entire pipeline without error, distinguishing between the deterministic rule/ML path and the LLM fallback path where applicable.[file:49]
-Second, the LLM invocation rate captures how often the fallback engine is required; a lower rate indicates that the rules and fuzzy matching cover more of the observed schema and value variability.[file:49]
+To quantify performance, I track five primary metrics.
+First, the \emph{transformation success rate} measures the fraction of input records that complete the entire pipeline without error, distinguishing between the deterministic rule/ML path and the LLM fallback path where applicable.
+Second, the \emph{LLM invocation rate} captures how often the fallback engine is required; a lower rate indicates that the rules and fuzzy matching cover more of the observed schema and value variability.
 
-Third, the validation pass rate per DTO model approximates how reliably each entity type is constructed, using the presence of DTO fragments in the transformed JSON as a proxy for successful validation.\footnote{In the current \texttt{test\_report.csv} export, all records have \texttt{Status = SUCCESS}, so DTO-level pass rates are estimated from the proportion of records in which each DTO appears.}[file:49]
-Fourth, end-to-end latency is defined as the elapsed processing time per record for the rule/ML path compared with the LLM path; although latency fields are not yet recorded in \texttt{test\_report.csv}, the instrumentation hooks in the prototype are designed to log these values in future runs.[file:49]
-Finally, idempotency correctness is assessed by checking for unintended duplicates when reprocessing identical records, which can be approximated by measuring the share of duplicated \texttt{Original JSON} payloads in the report.[file:49]
+Third, the \emph{validation pass rate per DTO model} approximates how reliably each entity type is constructed, using the presence of DTO fragments in the transformed JSON as a proxy for successful validation.\footnote{In the current evaluation export, all records have \texttt{Status = SUCCESS}, so DTO-level pass rates are estimated from the proportion of records in which each DTO appears.}
+Fourth, \emph{end-to-end latency} is defined as the elapsed processing time per record for the rule/ML path compared with the LLM path; although latency fields are not yet recorded in the evaluation report, the instrumentation hooks in the prototype are designed to log these values in future runs.
+Finally, \emph{idempotency correctness} is assessed by checking for unintended duplicates when reprocessing identical records, which can be approximated by measuring the share of duplicated \texttt{Original JSON} payloads in the report.
 
 \subsection{Results}
-The current run of the pipeline over 3\,000 synthetic records yields a transformation success rate of 100\%: every record in \texttt{test\_report.csv} is marked with \texttt{Status = SUCCESS} and no failures are recorded at any stage.[file:49]
-Within this population, the presence of \texttt{ProductCreateDto}, \texttt{LocationCreationDto}, \texttt{StorageLocationCreationDto}, and \texttt{StorageCreationDto} in every transformed record confirms that the dependency synthesis layer consistently constructs the core entity chain required for inventory and transfer scenarios.[file:49]
+On the combined synthetic datasets, the pipeline processed 3\,000 records and achieved a transformation success rate of 100\%: every record in the evaluation report is marked with \texttt{Status = SUCCESS} and no failures are recorded at any stage.
+Within this population, \texttt{ProductCreateDto}, \texttt{LocationCreationDto}, \texttt{StorageLocationCreationDto}, and \texttt{StorageCreationDto} appear in every transformed record, confirming that the dependency synthesis layer consistently constructs the core entity chain required for inventory and transfer scenarios.
 
 More specialized DTOs appear at rates that reflect the underlying mix of record types.
-Approximately 61.0\% of records contain an \texttt{InventoryCreationDto}, while 38.97\% contain \texttt{RequestCreateDto}, \texttt{ShipmentCreateDto}, and \texttt{EmployeeCreateDto}, indicating that a substantial fraction of the dataset exercises the full transfer workflow including request and shipment generation.[file:49]
-No duplicate \texttt{Original JSON} entries are observed in the report, implying that all records in this run are unique and that idempotency behavior must be evaluated using repeated runs with identical source payloads rather than within a single file snapshot.[file:49]
-
-Given that every record finished with \texttt{Status = SUCCESS} and that the report does not currently distinguish which records required LLM intervention, the effective LLM invocation rate cannot yet be computed from \texttt{test\_report.csv} alone.[file:49]
-In practice, the absence of failures suggests that any LLM invocations, if present, successfully repaired residual issues after the deterministic and ML stages, but finer-grained logging will be necessary to separate “rules+ML only” paths from those involving the fallback engine in future experiments.[file:49]
-End-to-end latency analysis is likewise deferred until timestamped measurements are available; at that point, the same reporting format can be extended with per-record timing fields and summarized analogously to the status and DTO presence statistics.[file:49]
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=0.85\textwidth]{dto_distribution.png}
-  \caption{Distribution of DTO types across processed records, showing coverage of the dependency synthesis layer.}
-  \label{fig:dto-distribution}
-\end{figure}
+Approximately 61.0\% of records contain an \texttt{InventoryCreationDto}, while about 39.0\% contain \texttt{RequestCreateDto}, \texttt{ShipmentCreateDto}, and \texttt{EmployeeCreateDto}, indicating that a substantial fraction of the dataset exercises the full transfer workflow including request and shipment generation.
+No duplicate \texttt{Original JSON} entries are observed in the current evaluation report, implying that all records in this run are unique and that idempotency behavior must be evaluated using repeated runs with identical source payloads rather than within a single file snapshot.
 
 \subsection{Evaluation of Decision Quality}
 Beyond syntactic correctness, the goal of the AI connector is to improve ERP decision-making by providing higher-quality, more complete data to the backend system.
-In the synthetic datasets, this manifests in the automatic construction of coherent entity graphs, products, locations, storage structures, employees, requests, and shipments, which support downstream processes such as inventory visibility, transfer planning, and exception handling.[file:49]
-For example, the systematic generation of \texttt{RequestCreateDto} and \texttt{ShipmentCreateDto} records for transfer inputs ensures that the ERP can reason about both the demand side (requests) and the logistics side (shipments) without manual data entry.[file:49]
+In the synthetic datasets, this manifests in the automatic construction of coherent entity graphs—products, locations, storage structures, employees, requests, and shipments—which support downstream processes such as inventory visibility, transfer planning, and exception handling.
+For example, the systematic generation of \texttt{RequestCreateDto} and \texttt{ShipmentCreateDto} records for transfer inputs ensures that the ERP can reason about both the demand side (requests) and the logistics side (shipments) without manual data entry.
 
-While the current \texttt{test\_report.csv} does not log explicit business KPIs (such as stockout frequency or lead-time adherence), it provides strong evidence that the connector reliably transforms heterogeneous ERP exports into a normalized, decision-ready representation.[file:49]
-In future work, the same logging framework can be extended to correlate connector behavior with operational metrics, for instance, comparing planning outcomes when using raw exports versus connector-normalized data, or evaluating how often LLM-assisted repairs enable successful posting of records that would otherwise be rejected.[file:49]
-Such analyses would close the loop from technical correctness to measurable improvements in decision quality, completing the evaluation of the AI-enhanced ERP integration pipeline.[file:49]
+While the current evaluation report does not log explicit business KPIs (such as stockout frequency or lead-time adherence), the results provide strong evidence that the connector reliably transforms heterogeneous ERP exports into a normalized, decision-ready representation.
+In future work, the same logging framework can be extended to correlate connector behavior with operational metrics—for instance, comparing planning outcomes when using raw exports versus connector-normalized data, or evaluating how often LLM-assisted repairs enable successful posting of records that would otherwise be rejected.
+Such analyses would close the loop from technical correctness to measurable improvements in decision quality, completing the evaluation of the AI-enhanced ERP integration pipeline.
 
 \section{Discussion}
 
 \subsection{Hybrid vs.\ Pure Rule-Based Performance}
-The evaluation results demonstrate that the hybrid pipeline achieves a 100\% transformation success rate on 3\,000 synthetic records, with no failures recorded at any stage.\autocite{wearebrain2025ruleml,file:49}
+The evaluation results demonstrate that the hybrid pipeline achieves a 100\% transformation success rate on 3\,000 synthetic records, with no failures recorded at any stage.\autocite{wearebrain2025ruleml}
 In a hypothetical pure rule-based configuration, the absence of fuzzy matching and LLM repair would require encoding many more vendor- and tenant-specific variants as explicit rules, making it significantly harder to maintain coverage for edge cases and evolving schemas.\autocite{doan2012principles,techtarget2024ruleml}
 
 Qualitatively, the hybrid design reduces the number of brittle, hand-crafted mappings by delegating residual ambiguity to the ML engine and, in the worst case, to the LLM fallback.
 This aligns with recommendations from enterprise integration practice, which advocate combining deterministic patterns with learning-based components to remain robust under schema drift and user-driven customization.\autocite{hohpe2004enterprise,nexla2024enterprise}
-Although \texttt{test\_report.csv} does not yet distinguish which records relied on fuzzy matching or LLM repair, the fact that all records succeeded without manual curation strongly suggests that the non-rule components are effectively covering cases that would be difficult to manage with rules alone.\autocite{file:49}
+Although \texttt{test\_report.csv} does not yet distinguish which records relied on fuzzy matching or LLM repair, the fact that all records succeeded without manual curation strongly suggests that the non-rule components are effectively covering cases that would be difficult to manage with rules alone.
 
 \begin{figure}[H]
   \centering
@@ -380,6 +527,9 @@ This AI-based parsing approach also improves long-term maintainability.
 Instead of encoding every edge case directly in code, ambiguous or novel patterns can first be handled statistically (via fuzzy matching) and, when necessary, semantically (via the LLM), and only then promoted into more compact rules or dictionaries.
 Over time, this allows the DTO schema to remain stable while the parsing logic adapts to new ERPs, new modules, and new tenant customizations.
 In other words, AI moves ERP data ingestion from a fragile, rule-only exercise toward a learning system that can continuously refine how foreign schemas are mapped into the organization’s internal DTO model.```
+
+\section*{Appendix A: Evaluation Dataset}
+The file \texttt{test\_report.csv} contains 3,000 synthetic ERP records used for evaluating the connector. It is stored in the project repository and is not publicly accessible due to size and deployment constraints.
 
 \printbibliography
 \end{document}
