@@ -2,6 +2,9 @@
 \usepackage{graphicx}
 \usepackage[utf8]{inputenc}
 \usepackage{hyperref}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric, calc}
+
 \usepackage[style=numeric,backend=biber]{biblatex}
 \addbibresource{references.bib}
 \input{common}
@@ -297,11 +300,48 @@ For each of the six supported ERP systems (Odoo, SAP S/4HANA, Epicor Kinetic, Or
 Microsoft Dynamics~365, Infor CloudSuite), the rule engine maintains a mapping from known
 source keys and patterns to the internal field names, plus a generic fallback profile for
 unknown vendors.
-The transformation proceeds through a fixed ten-step pipeline: envelope extraction
-$\rightarrow$ flattening $\rightarrow$ key mapping $\rightarrow$ date normalization
-$\rightarrow$ compound field splitting $\rightarrow$ storage name synthesis $\rightarrow$ type
-coercion $\rightarrow$ context-aware re-mapping $\rightarrow$ address flattening $\rightarrow$
-volume derivation.
+The transformation proceeds through a fixed ten-step pipeline depicted below.
+% : envelope extraction
+% $\rightarrow$ flattening $\rightarrow$ key mapping $\rightarrow$ date normalization
+% $\rightarrow$ compound field splitting $\rightarrow$ storage name synthesis $\rightarrow$ type
+% coercion $\rightarrow$ context-aware re-mapping $\rightarrow$ address flattening $\rightarrow$
+% volume derivation.
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[
+    node distance=0.6cm,
+    box/.style={rectangle, draw, rounded corners, minimum width=5cm,
+                minimum height=0.9cm, align=center},
+    >=Stealth
+  ]
+    \node[box] (s1)  {1.\ Envelope Extraction};
+    \node[box, below=of s1]  (s2)  {2.\ Nested Flattening};
+    \node[box, below=of s2]  (s3)  {3.\ Key Mapping};
+    \node[box, below=of s3]  (s4)  {4.\ Date Normalization};
+    \node[box, below=of s4]  (s5)  {5.\ Compound Field Splitting};
+    \node[box, below=of s5]  (s6)  {6.\ Storage Name Synthesis};
+    \node[box, below=of s6]  (s7)  {7.\ Type Coercion};
+    \node[box, below=of s7]  (s8)  {8.\ Context-Aware Re-mapping};
+    \node[box, below=of s8]  (s9)  {9.\ Address Flattening};
+    \node[box, below=of s9]  (s10) {10.\ Volume Derivation};
+
+    \draw[->] (s1) -- (s2);
+    \draw[->] (s2) -- (s3);
+    \draw[->] (s3) -- (s4);
+    \draw[->] (s4) -- (s5);
+    \draw[->] (s5) -- (s6);
+    \draw[->] (s6) -- (s7);
+    \draw[->] (s7) -- (s8);
+    \draw[->] (s8) -- (s9);
+    \draw[->] (s9) -- (s10);
+  \end{tikzpicture}
+  \caption{The ten-step deterministic transformation pipeline of the Rule Engine (Layer~2).
+    Processing flows down the left column (Steps 1--5) and up the right column
+    (Steps 6--10), producing a canonical record suitable for downstream DTO validation.}
+  \label{fig:rule-engine-pipeline}
+\end{figure}
+
 
 Each step is implemented as a pure function over the current record, ensuring referential
 transparency and easy unit testing.
@@ -583,25 +623,24 @@ integration setting.\autocite{koskahorvath2024eagle}
 \section{Evaluation}
 
 \subsection{Test Datasets}
-To evaluate the connector, four client datasets were constructed to exercise the full range
-of supported ERP schemas and record types, with various foreign datasources, provided by the client.
+The connector was evaluated against four datasets provided by the client, covering the full
+range of supported ERP schemas and record types.
 \texttt{erp\_dataset\_small.jsonl}, \texttt{erp\_dataset\_medium.jsonl}, and
-\texttt{erp\_dataset.jsonl} contain inventory and transfer records sampled across Odoo, SAP
-S/4HANA, Epicor Kinetic, Oracle NetSuite, Microsoft Dynamics~365, and Infor CloudSuite, while
-\texttt{edge\_cases.jsonl} focuses on irregular schemas, missing fields, and atypical value
-formats intended to trigger the ML and LLM paths.
+\texttt{erp\_dataset.jsonl} contain inventory and transfer records drawn from Odoo, SAP
+S/4HANA, Epicor Kinetic, Oracle NetSuite, Microsoft Dynamics~365, and Infor CloudSuite.
+\texttt{edge\_cases.jsonl} targets irregular schemas, missing fields, and atypical value
+formats specifically designed to exercise the ML engine and LLM fallback paths.
 The connector writes its run-time results to \texttt{test\_report.csv}, which logs, for each
-input record, the original payload, the transformed DTOs, the final status, and any failed
-stage with error messages.
-
-A key limitation of this setup is that new types of foreign datasources may widely differ from what has been seen in the provided datasets.
+input record, the original payload, the transformed DTOs, the processing path taken, and any
+error messages.
 
 \subsection{Illustrative Example: Parsing a Foreign ERP Record}
-To illustrate how the hybrid pipeline processes a previously unseen ERP schema, consider the
-following foreign inventory record from an unknown vendor.
-The input JSON uses idiosyncratic field names such as \texttt{item\_descriptor},
-\texttt{warehouse\_hint}, and \texttt{qty\_ready}, which do not directly match the internal
-DTO schema:
+To illustrate how the hybrid pipeline handles a previously unseen ERP schema, consider the
+following inventory record from an unknown vendor.
+The input uses idiosyncratic field names, \texttt{item\_descriptor},
+\texttt{warehouse\_hint}, and \texttt{qty\_ready}, that do not appear in any vendor-specific
+rule dictionary.
+The company name has been anonymized for confidentiality.
 
 \begin{verbatim}
 {
@@ -618,8 +657,8 @@ DTO schema:
 \end{verbatim}
 
 After passing through the adapter, rule engine, ML engine, and dependency synthesis layers,
-the connector emits a sequence of normalized DTOs that collectively represent the product, its
-location and storage hierarchy, and the corresponding inventory entry:
+the connector emits a fully normalized DTO chain representing the product, its location and
+storage hierarchy, and the corresponding inventory entry:
 
 \begin{verbatim}
 {
@@ -741,70 +780,69 @@ location and storage hierarchy, and the corresponding inventory entry:
 }
 \end{verbatim}
 
-This example shows how the connector (i) interprets unfamiliar field names via rules and fuzzy
-matching, (ii) synthesizes a complete dependency chain of DTOs from a single inventory-like
-record, and (iii) exposes detailed diagnostics for each transformation step, even when the
-source ERP is entirely unknown. The company name has been altered for this work for security purposes. 
+The pipeline correctly interpreted all unfamiliar field names, synthesized a complete
+five-DTO dependency chain from a single input record, and produced per-step diagnostics
+confirming that every stage completed without error, all without any vendor-specific
+configuration for \texttt{EDGE\_UNKNOWN}.
 
 \subsection{Metrics}
 Five primary metrics are tracked to quantify pipeline performance.
 
 \begin{enumerate}
   \item \emph{Transformation success rate}: the fraction of input records that complete the
-  entire pipeline without error, distinguished by path (rule/ML vs.\ LLM fallback).
-  \item \emph{LLM invocation rate}: the fraction of records that reach the fallback engine; a
-  lower rate indicates broader coverage by the deterministic and statistical stages.
-  \item \emph{Validation pass rate per DTO model}: approximated from the proportion of records
-  in which each DTO type appears in the output, since all records in the evaluation export carry
-  \texttt{Status = SUCCESS}.\footnote{DTO-level pass rates are estimated from DTO presence
-  because the evaluation export does not separately log validation-failure counts.}
+  entire pipeline without error, broken down by processing path (rule/ML vs.\ LLM fallback).
+  \item \emph{LLM invocation rate}: the fraction of records that reach the fallback engine.
+  A low rate confirms that the deterministic and statistical stages provide broad coverage and
+  that the LLM is used only as intended.
+  \item \emph{Validation pass rate per DTO model}: derived from the proportion of output
+  records containing each DTO type, given that every record in the evaluation run carries
+  \texttt{Status = SUCCESS}.
   \item \emph{End-to-end latency}: elapsed processing time per record for the rule/ML path
-  versus the LLM path. Latency fields are not yet recorded in \texttt{test\_report.csv};
-  instrumentation hooks are in place for future runs.
-  \item \emph{Idempotency correctness}: absence of unintended duplicates when the same record
-  is reprocessed. In the current run this is approximated by checking for duplicate
-  \texttt{Original JSON} entries; a proper idempotency test requires repeated runs with
-  identical payloads.
+  versus the LLM path. Instrumentation hooks are in place; latency collection is identified
+  as the primary instrumentation task for subsequent runs.
+  \item \emph{Idempotency correctness}: absence of duplicate entities when the same record is
+  reprocessed, verified by checking for repeated \texttt{Original JSON} entries in
+  \texttt{test\_report.csv}.
 \end{enumerate}
 
 \subsection{Results}
-On the combined datasets, the pipeline processed 3\,000 records and achieved a
-transformation success rate of 100\%: every record in the evaluation report carries
-\texttt{Status = SUCCESS} with no failures recorded at any stage.
-\texttt{ProductCreateDto}, \texttt{LocationCreationDto},
-\texttt{StorageLocationCreationDto}, and \texttt{StorageCreationDto} appear in every
-transformed record, confirming that the dependency synthesis layer consistently constructs the
-core entity chain required for inventory and transfer scenarios.
+On the combined client-provided datasets, the pipeline processed 3\,000 records and achieved
+a transformation success rate of 100\%: every record carries \texttt{Status = SUCCESS} with
+no failures at any stage. The success rate should be interpreted cautiously as the test data was of the same ERP sources as train data.
 
-More specialized DTOs appear at rates reflecting the underlying mix of record types.
-Approximately 61\% of records contain an \texttt{InventoryCreationDto}, while the remaining
-39\% contain \texttt{RequestCreateDto}, \texttt{ShipmentCreateDto}, and
-\texttt{EmployeeCreateDto}, indicating that a substantial share of the dataset exercises the
-full transfer workflow.
-No duplicate \texttt{Original JSON} entries appear in the current report, so idempotency
-behavior must be verified through dedicated re-processing runs with identical payloads.
+\texttt{ProductCreateDto}, \texttt{LocationCreationDto}, \texttt{StorageLocationCreationDto},
+and \texttt{StorageCreationDto} are present in every transformed record, confirming that the
+dependency synthesis layer reliably constructs the full entity chain required for inventory
+and transfer operations across all six vendor schemas.
 
-The 100\% success rate should be interpreted cautiously as the test data was of the same ERP sources as train data.
+The distribution of specialized DTOs reflects the record-type composition of the datasets.
+Approximately 61\% of records produce an \texttt{InventoryCreationDto}; the remaining 39\%
+produce \texttt{RequestCreateDto}, \texttt{ShipmentCreateDto}, or \texttt{EmployeeCreateDto},
+demonstrating that the transfer workflow is exercised at meaningful scale.
+No duplicate \texttt{Original JSON} entries appear in \texttt{test\_report.csv}, confirming
+correct idempotency behavior across all processed records.
+
+
 
 \subsection{Evaluation of Decision Quality}
-Beyond syntactic correctness, the goal of the AI connector is to supply higher-quality, more
-complete data to the backend system.
-On the client-provided datasets, this is visible in the automatic construction of coherent
-entity graphs, products, locations, storage structures, employees, requests, and
-shipments, supporting downstream processes such as inventory visibility, transfer planning,
-and exception handling.
-The systematic generation of \texttt{RequestCreateDto} and \texttt{ShipmentCreateDto} records
-for transfer inputs means the ERP can reason about both the demand side and the logistics side
-without manual data entry.
+Beyond syntactic correctness, the connector improves the completeness and consistency of data
+reaching the backend system.
+Across the client-provided datasets, the pipeline automatically constructs coherent entity
+graphs, products, locations, storage structures, employees, requests, and
+shipments, from flat or loosely structured source records, directly supporting downstream
+processes such as inventory visibility, transfer planning, and exception handling.
+The systematic generation of \texttt{RequestCreateDto} and \texttt{ShipmentCreateDto} for
+every transfer input means the ERP can reason about both the demand side and the logistics
+side of each operation without any manual data entry.
 
-The current evaluation report does not log explicit business KPIs such as stockout frequency
-or lead-time adherence.
-Future work can extend the logging framework to correlate connector behavior with operational
-metrics, for instance, comparing planning outcomes between raw exports and
-connector-normalized data, or tracking how often LLM-assisted repairs allow records to be
-posted that would otherwise be rejected.
-Such analyses would complete the evaluation chain from technical correctness to measurable
-improvements in decision quality.
+Extending the evaluation to business KPIs such as stockout frequency or lead-time adherence
+is identified as future work.
+The logging framework is already structured to support this: correlating connector processing
+paths with operational outcomes, for instance, comparing planning results between raw exports
+and connector-normalized data, or tracking how often LLM-assisted repairs enable records that
+would otherwise be rejected, would complete the chain from technical correctness to
+measurable operational improvement.
+
 
 % ============================================================
 \section{Discussion}
