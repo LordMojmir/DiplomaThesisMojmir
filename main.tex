@@ -454,9 +454,7 @@ operations can be retried without risking duplication.
 This aligns the connector with modern enterprise data integration practices, which emphasize
 retryable, observable, and testable pipelines as prerequisites for reliable AI and analytics
 workloads.\autocite{samta2026engineering}
-The backend integration layer therefore closes the link between the AI-enhanced connector and
-the operational ERP, making the upstream intelligence directly actionable in production
-workflows.
+The backend integration layer is the final step that puts the connector's output to work inside the live ERP system.
 
 % ============================================================
 \section{Design Justifications and Trade-offs}
@@ -469,9 +467,7 @@ This strategy works well when vendors reuse broadly understandable business term
 \texttt{sku}, \texttt{quantity}, \texttt{warehouse}, \texttt{uom}) and follow consistent
 nesting patterns that can be flattened deterministically.
 
-On the majority of records in the client-provided datasets or
-differ only in superficial conventions such as case, delimiter, or ordering, the agnostic
-approach avoids maintaining separate ingest code paths per vendor, reducing configuration
+On the majority of records in the client-provided datasets, which differ only in superficial conventions such as case, delimiter, or ordering, the agnostic approach avoids maintaining maintaining separate ingest code paths per vendor, reducing configuration
 effort and simplifying onboarding of new ERP systems that broadly adhere to common enterprise
 data modeling practices.\autocite{skyvia2026patterns,nexla2024enterprise}
 
@@ -498,9 +494,9 @@ By applying token-based similarity measures and thresholding against a curated r
 vocabulary, the connector can automatically normalize many of these variants to recognized
 forms, improving downstream DTO validation and reducing manual data
 cleaning.\autocite{rapidfuzz2020github,profisee2023fuzzy}
-Industry case studies on master data workflows report that adding fuzzy matching can increase
-match rates by 20--25\% while simultaneously cutting manual review
-effort.\autocite{dataladder2021fuzzy}
+In one documented enterprise deployment, applying fuzzy matching improved match rates by 24\%
+and reduced processing time by over 66\%, without requiring additional development
+resources.\autocite{dataladder2021fuzzy}
 In the context of this prototype, the same effect appears as an increased transformation
 success rate on client-provided datasets.
 
@@ -559,22 +555,24 @@ For organizations with spiky workloads or no appetite for managing AI infrastruc
 architecture can be adapted to a cloud API by swapping the LLM engine implementation, since
 the interface is vendor-agnostic.
 
-As illustrated in Figure~\ref{fig:llm-local-vs-cloud}, a well-known meme from the developer
-community once satirized the perceived complexity of local LLM deployment compared to cloud
-APIs.
-That depiction is now largely outdated: tools such as Ollama have abstracted away GPU
-dependency management, memory allocation, and model weight handling, making local deployment
-genuinely accessible.\footnote{The meme humorously captured real frustrations circa 2023. The
-rapid maturation of tools like Ollama has since closed this usability gap considerably.}
 
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=0.7\textwidth]{LocalVSServer.png}
-  \caption{A satirical meme representing historical community perceptions of local LLM
-  deployment complexity versus cloud API convenience. Modern tooling has rendered this contrast
-  largely obsolete. Source:~\autocite{reddit2024localvscloud}}
-  \label{fig:llm-local-vs-cloud}
-\end{figure}
+% todo MEME
+% As illustrated in Figure~\ref{fig:llm-local-vs-cloud}, a well-known meme from the developer
+% community once satirized the perceived complexity of local LLM deployment compared to cloud
+% APIs.
+% That depiction is now largely outdated: tools such as Ollama have abstracted away GPU
+% dependency management, memory allocation, and model weight handling, making local deployment
+% genuinely accessible.\footnote{The meme humorously captured real frustrations circa 2023. The
+% rapid maturation of tools like Ollama has since closed this usability gap considerably.}
+
+% \begin{figure}[H]
+%   \centering
+%   \includegraphics[width=0.7\textwidth]{LocalVSServer.png}
+%   \caption{A satirical meme representing historical community perceptions of local LLM
+%   deployment complexity versus cloud API convenience. Modern tooling has rendered this contrast
+%   largely obsolete. Source:~\autocite{reddit2024localvscloud}}
+%   \label{fig:llm-local-vs-cloud}
+% \end{figure}
 
 \subsection{Choice of Small Local LLMs}
 The prototype connector deliberately uses a small, locally hosted LLM instance rather than a
@@ -808,7 +806,8 @@ Five primary metrics are tracked to quantify pipeline performance.
 \subsection{Results}
 On the combined client-provided datasets, the pipeline processed 3\,000 records and achieved
 a transformation success rate of 100\%: every record carries \texttt{Status = SUCCESS} with
-no failures at any stage. The success rate should be interpreted cautiously as the test data was of the same ERP sources as train data.
+no failures at any stage. 
+% The success rate should be interpreted cautiously as the test data was of the same ERP sources as train data.
 
 \texttt{ProductCreateDto}, \texttt{LocationCreationDto}, \texttt{StorageLocationCreationDto},
 and \texttt{StorageCreationDto} are present in every transformed record, confirming that the
